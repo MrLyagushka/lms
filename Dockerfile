@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Скрипты делаем исполняемыми (для Linux-сервера)
-RUN chmod +x /app/scripts/check_domain.py || true
+RUN chmod +x /app/scripts/*.py || true
 
 # Сборка статики
 RUN python manage.py collectstatic --noinput || true

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""
-Скрипт проверки соответствия домена в .env и Caddyfile.
-Если домены отличаются — спрашивает пользователя о замене.
-"""
+# Скрипт проверки соответствия домена в .env и Caddyfile.
+# Если домены отличаются — спрашивает пользователя о замене.
+#
+# Запуск:
+#     python /app/scripts/check_domain.py            # интерактивно
+#     python /app/scripts/check_domain.py --auto-yes # без вопросов (для make deploy)
 
 import os
 import re
@@ -13,38 +15,33 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 ENV_FILE = BASE_DIR / '.env'
 CADDYFILE = BASE_DIR / 'Caddyfile'
 
+# Регулярка для поиска домена (первая строка-директива, не localhost)
+DOMAIN_RE = r'^(?!http://localhost)([a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,})'
+
 
 def get_env_domain():
     """Получить домен из .env"""
     if not ENV_FILE.exists():
-        print("[ERROR] Файл .env не найден!")
-        sys.exit(1)
-
+        print(f"[ERROR] .env не найден: {ENV_FILE}")
+        return None
     with open(ENV_FILE, 'r', encoding='utf-8') as f:
         for line in f:
             if line.startswith('DOMAIN_NAME='):
-                return line.split('=', 1)[1].strip()
+                value = line.split('=', 1)[1].strip()
+                return value.strip('"').strip("'")
     return None
 
 
 def get_caddy_domain():
     """Получить домен из Caddyfile"""
     if not CADDYFILE.exists():
-        print("[ERROR] Файл Caddyfile не найден!")
-        sys.exit(1)
-
+        print(f"[ERROR] Caddyfile не найден: {CADDYFILE}")
+        return None
     with open(CADDYFILE, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # Ищем первый домен (не localhost)
-    match = re.search(
-        r'^(?!http://localhost)([a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,})',
-        content,
-        re.MULTILINE,
-    )
-    if match:
-        return match.group(1)
-    return None
+    match = re.search(DOMAIN_RE, content, re.MULTILINE)
+    return match.group(1) if match else None
 
 
 def update_caddyfile(new_domain):
@@ -53,7 +50,7 @@ def update_caddyfile(new_domain):
         content = f.read()
 
     content = re.sub(
-        r'^(?!http://localhost)([a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,})',
+        DOMAIN_RE,
         new_domain,
         content,
         count=1,
@@ -69,7 +66,9 @@ def update_caddyfile(new_domain):
 def restart_caddy():
     """Перезапустить Caddy через docker-compose"""
     print("[..] Перезапуск Caddy...")
-    os.system('docker-compose restart caddy')
+    # Пытаемся V2, при неудаче — старый docker-compose
+    if os.system('docker compose restart caddy') != 0:
+        os.system('docker-compose restart caddy')
     print("[OK] Caddy перезапущен")
 
 
@@ -80,6 +79,10 @@ def main():
     print(f"[i] Домен в .env:      {env_domain}")
     print(f"[i] Домен в Caddyfile: {caddy_domain}")
 
+    if not env_domain or not caddy_domain:
+        print("[ERROR] Не удалось прочитать домены")
+        sys.exit(1)
+
     if env_domain == caddy_domain:
         print("[OK] Домены совпадают. Всё в порядке!")
         sys.exit(0)
@@ -88,7 +91,8 @@ def main():
     print(f"    .env:      {env_domain}")
     print(f"    Caddyfile: {caddy_domain}")
 
-    if len(sys.argv) > 1 and sys.argv[1] == '--auto-yes':
+    auto_yes = '--auto-yes' in sys.argv
+    if auto_yes:
         response = 'y'
     else:
         response = input("\nЗаменить домен в Caddyfile на значение из .env? (y/n): ").strip().lower()
