@@ -1,0 +1,44 @@
+{$DOMAIN_NAME} {
+    reverse_proxy web:8000
+
+    encode gzip
+
+    header {
+        -Server
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    tls {$CADDY_EMAIL}
+
+    # Статика Django (собранная collectstatic в общий том)
+    handle_path /static/* {
+        root * /srv/static
+        file_server
+    }
+
+    # Медиа файлы (загрузки пользователей)
+    handle_path /media/* {
+        root * /srv/media
+        file_server
+    }
+
+    log {
+        output stdout
+    }
+}
+
+http://localhost {
+    reverse_proxy web:8000
+
+    handle_path /static/* {
+        root * /srv/static
+        file_server
+    }
+
+    handle_path /media/* {
+        root * /srv/media
+        file_server
+    }
+}

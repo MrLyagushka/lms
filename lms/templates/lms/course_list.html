@@ -1,0 +1,73 @@
+{% extends 'lms/base.html' %}
+{% block title %}Курсы · ЕГЭ/ОГЭ Подготовка{% endblock %}
+
+{% block content %}
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl font-semibold text-slate-800 dark:text-gray-100">Каталог курсов</h1>
+        <p class="text-slate-400 dark:text-gray-500 mt-1">Подготовка к ЕГЭ и ОГЭ по всем предметам</p>
+    </div>
+    {% if user.is_teacher %}
+    <a href="{% url 'course_create' %}"
+       class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white text-sm font-medium rounded-xl px-4 py-2.5 transition">
+        <span class="text-lg leading-none">+</span> Новый курс
+    </a>
+    {% endif %}
+</div>
+
+<!-- Filters -->
+<form method="get" class="card p-4 mb-6 flex-col sm:flex-row gap-3">
+    <input type="text" name="q" value="{{ query }}" placeholder="Поиск по названию..."
+           class="form-input flex-1">
+    <select name="subject" class="form-input sm:w-56">
+        <option value="">Все предметы</option>
+        {% for value, label in subjects %}
+            <option value="{{ value }}" {% if current_subject == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="bg-slate-800 hover:bg-slate-900 dark:bg-gray-700 dark:hover:bg-gray-600 text-white text-sm font-medium rounded-xl px-5 py-2.5 transition">
+        Найти
+    </button>
+</form>
+
+{% if courses %}
+<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+    {% for course in courses %}
+    <div class="card overflow-hidden flex-col">
+        {% if course.cover %}
+            <img src="{{ course.cover.url }}" class="h-36 w-full object-cover" alt="">
+        {% else %}
+            <div class="h-36 w-full bg-gradient-to-br from-brand-500 to-brand-700 flex items-end p-4">
+                <span class="badge bg-white/20 text-white backdrop-blur">{{ course.get_subject_display }}</span>
+            </div>
+        {% endif %}
+        <div class="p-5 flex-col flex-1">
+            {% if course.cover %}
+                <span class="badge bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 self-start mb-2">{{ course.get_subject_display }}</span>
+            {% endif %}
+            <h3 class="font-medium text-slate-800 dark:text-gray-100">{{ course.title }}</h3>
+                        <p class="text-sm text-slate-400 dark:text-gray-500 mt-1 line-clamp-2 flex-1">{{ course.description|default:"Без
+                            описания"|truncatechars:100 }}</p>
+                        <div class="flex items-center gap-3 text-xs text-slate-400 dark:text-gray-500 mt-3">
+                <span>{{ course.num_lessons }} уроков</span>
+                <span>·</span>
+                <span>{{ course.num_students }} учеников</span>
+            </div>
+            <div class="mt-4 flex items-center justify-between">
+                <a href="{{ course.get_absolute_url }}" class="text-sm text-brand-600 dark:text-brand-400 hover:underline font-medium">Подробнее →</a>
+                {% if user.is_student %}
+                    {% if course.id in my_course_ids %}
+                        <span class="badge bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">Вы записаны</span>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card p-12 text-center">
+    <p class="text-slate-400 dark:text-gray-500">Курсы не найдены.</p>
+</div>
+{% endif %}
+{% endblock %}

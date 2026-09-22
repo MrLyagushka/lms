@@ -1,0 +1,57 @@
+{% extends 'lms/base.html' %}
+{% block title %}Проверка ДЗ · ЕГЭ/ОГЭ Подготовка{% endblock %}
+
+{% block content %}
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl font-semibold text-slate-800 dark:text-gray-100">Ответы на проверку</h1>
+        <p class="text-slate-400 dark:text-gray-500 mt-1">Работы ваших учеников</p>
+    </div>
+</div>
+
+<!-- Status filter -->
+<div class="flex flex-wrap gap-2 mb-6">
+    <a href="{% url 'submission_list' %}"
+       class="badge px-4 py-2 {% if not current_status %}bg-brand-600 text-white{% else %}bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 text-slate-600 dark:text-gray-300{% endif %}">Все</a>
+    {% for value, label in statuses %}
+        <a href="?status={{ value }}"
+           class="badge px-4 py-2 {% if current_status == value %}bg-brand-600 text-white{% else %}bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 text-slate-600 dark:text-gray-300{% endif %}">{{ label }}</a>
+    {% endfor %}
+</div>
+
+{% if submissions %}
+<div class="card divide-y divide-slate-50 dark:divide-gray-700">
+    {% for s in submissions %}
+    <div class="p-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            {% if s.student.avatar %}
+                <img src="{{ s.student.avatar.url }}" class="w-9 h-9 rounded-full object-cover" alt="">
+            {% else %}
+                <span class="w-9 h-9 rounded-full bg-brand-100 dark:bg-brand-900/50 text-brand-700 dark:text-brand-300 grid place-items-center text-sm font-medium">
+                    {{ s.student.full_name|slice:':1'|upper }}
+                </span>
+            {% endif %}
+            <div>
+                <p class="font-medium text-slate-700 dark:text-gray-200">{{ s.student.full_name }}</p>
+                <p class="text-xs text-slate-400 dark:text-gray-500">{{ s.homework.title }} · {{ s.homework.course.title }}</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <span class="badge hidden sm:inline-flex
+                {% if s.status == 'NEW' %}bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300
+                {% elif s.status == 'CHECKED' %}bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300
+                {% else %}bg-amber-50 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300{% endif %}">
+                {{ s.get_status_display }}
+            </span>
+            {% if s.grade is not None %}
+                <span class="text-sm text-slate-500 dark:text-gray-400">{{ s.grade }}/100</span>
+            {% endif %}
+            <a href="{% url 'submission_check' s.pk %}" class="text-sm text-brand-600 dark:text-brand-400 hover:underline">Проверить</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card p-12 text-center text-slate-400 dark:text-gray-500">Ответов пока нет.</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends 'lms/base.html' %}
+{% block title %}Сдать работу · ЕГЭ/ОГЭ Подготовка{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <nav class="text-sm text-slate-400 dark:text-gray-500 mb-4">
+        <a href="{{ course.get_absolute_url }}" class="hover:text-brand-600">{{ course.title }}</a>
+        <span class="mx-2">/</span>
+        <a href="{{ homework.get_absolute_url }}" class="hover:text-brand-600">{{ homework.title }}</a>
+        <span class="mx-2">/</span>
+        <span class="text-slate-600 dark:text-gray-300">Ответ</span>
+    </nav>
+
+    <h1 class="text-2xl font-semibold text-slate-800 dark:text-gray-100 mb-2">
+        {% if submission %}Редактирование ответа{% else %}Сдать работу{% endif %}
+    </h1>
+    <p class="text-slate-400 dark:text-gray-500 mb-6">{{ homework.title }}</p>
+
+    <form method="post" enctype="multipart/form-data" class="card p-8 space-y-5">
+        {% csrf_token %}
+        {% for field in form %}
+        <div>
+            <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">{{ field.label }}</label>
+            {{ field }}
+            {% for error in field.errors %}
+                <p class="text-xs text-red-500 mt-1">{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endfor %}
+
+        <div class="flex items-center gap-3 pt-2">
+            <button type="submit"
+                    class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl px-5 py-2.5 transition">
+                Отправить
+            </button>
+            <a href="{{ homework.get_absolute_url }}" class="text-sm text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300">Отмена</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

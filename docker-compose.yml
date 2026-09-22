@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: lms_web
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - static_data:/app/staticfiles
+      - media_data:/app/media
+    env_file:
+      - .env
+    environment:
+      - DJANGO_ALLOWED_HOSTS=${DOMAIN_NAME},localhost,127.0.0.1
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             gunicorn core.wsgi:application --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-3}"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: lms_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - static_data:/srv/static
+      - media_data:/srv/media
+      - caddy_data:/data
+      - caddy_config:/config
+    env_file:
+      - .env
+    depends_on:
+      - web
+
+volumes:
+  static_data:
+  media_data:
+  caddy_data:
+  caddy_config:

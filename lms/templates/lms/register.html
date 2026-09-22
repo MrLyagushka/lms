@@ -1,0 +1,67 @@
+{% extends 'lms/base.html' %}
+{% block title %}Регистрация · ЕГЭ/ОГЭ Подготовка{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto mt-6">
+    <div class="card border border-gray-100 dark:border-gray-800 p-8">
+        <div class="text-center mb-6">
+            <div class="w-12 h-12 rounded-2xl bg-brand-600 dark:bg-brand-500 text-white grid place-items-center text-lg font-bold mx-auto mb-4">Е</div>
+            <h1 class="text-xl font-semibold text-gray-800 dark:text-gray-100">Создать аккаунт</h1>
+            <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">Регистрация по email займёт минуту</p>
+        </div>
+
+        {% if form.non_field_errors %}
+            <div class="rounded-xl bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 text-red-700 dark:text-red-300 text-sm px-4 py-3 mb-4">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <div class="grid sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">{{ form.first_name.label }}</label>
+                    {{ form.first_name }}
+                    {% for e in form.first_name.errors %}<p class="text-xs text-red-500 mt-1">{{ e }}</p>{% endfor %}
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">{{ form.last_name.label }}</label>
+                    {{ form.last_name }}
+                    {% for e in form.last_name.errors %}<p class="text-xs text-red-500 mt-1">{{ e }}</p>{% endfor %}
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">{{ form.email.label
+                    }}</label>
+                {{ form.email }}
+                {% for e in form.email.errors %}<p class="text-xs text-red-500 mt-1">{{ e }}</p>{% endfor %}
+            </div>
+            <div class="grid sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">{{ form.password.label }}</label>
+                    {{ form.password }}
+                    {% for e in form.password.errors %}<p class="text-xs text-red-500 mt-1">{{ e }}</p>{% endfor %}
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">{{ form.password_confirm.label }}</label>
+                    {{ form.password_confirm }}
+                    {% for e in form.password_confirm.errors %}<p class="text-xs text-red-500 mt-1">{{ e }}</p>{% endfor %}
+                </div>
+            </div>
+            <button type="submit"
+                    class="w-full bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white font-medium rounded-xl py-2.5 transition">
+                Зарегистрироваться
+            </button>
+        </form>
+
+        <p class="text-xs text-gray-400 dark:text-gray-500 text-center mt-6">
+            Уже есть аккаунт?
+            <a href="{% url 'login' %}" class="text-brand-600 dark:text-brand-400 hover:underline">Войти</a>
+        </p>
+        <p class="text-xs text-gray-400 dark:text-gray-500 text-center mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+            Регистрация доступна только для учеников.<br>
+            Преподаватели регистрируются через администратора.
+        </p>
+    </div>
+</div>
+{% endblock %}

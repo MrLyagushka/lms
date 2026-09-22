@@ -1,0 +1,61 @@
+{% extends 'lms/base.html' %}
+{% block title %}{{ lesson.title }} · ЕГЭ/ОГЭ Подготовка{% endblock %}
+
+{% block content %}
+<nav class="text-sm text-slate-400 dark:text-gray-500 mb-4">
+    <a href="{% url 'course_list' %}" class="hover:text-brand-600">Курсы</a>
+    <span class="mx-2">/</span>
+    <a href="{{ course.get_absolute_url }}" class="hover:text-brand-600">{{ course.title }}</a>
+    <span class="mx-2">/</span>
+    <span class="text-slate-600 dark:text-gray-300">Урок {{ lesson.order }}</span>
+</nav>
+
+<div class="grid lg:grid-cols-4 gap-6">
+    <!-- Lesson content -->
+    <div class="lg:col-span-3">
+        <div class="card p-8">
+            <div class="flex items-center gap-3 mb-4">
+                <span class="w-10 h-10 rounded-xl bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 grid place-items-center font-semibold">{{
+                                    lesson.order }}</span>
+                                <h1 class="text-2xl font-semibold text-slate-800 dark:text-gray-100">{{ lesson.title }}</h1>
+                            </div>
+                            <div class="prose prose-slate dark:prose-invert max-w-none text-slate-600 dark:text-gray-300 whitespace-pre-line leading-relaxed">
+                {{ lesson.content|default:"Содержание урока пока не заполнено." }}
+            </div>
+            {% if is_owner %}
+            <div class="flex items-center gap-3 mt-6 pt-6 border-t border-slate-100 dark:border-gray-700">
+                <a href="{% url 'lesson_edit' lesson.pk %}" class="text-sm text-brand-600 dark:text-brand-400 hover:underline">Редактировать урок</a>
+                <a href="{% url 'lesson_delete' lesson.pk %}" class="text-sm text-red-500 hover:underline">Удалить</a>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if homeworks %}
+        <h2 class="text-lg font-semibold text-slate-800 dark:text-gray-100 mb-4 mt-8">Задания к уроку</h2>
+        <div class="space-y-3">
+            {% for hw in homeworks %}
+            <a href="{{ hw.get_absolute_url }}" class="card p-4 block hover:border-brand-200 dark:hover:border-brand-700 transition">
+                <p class="font-medium text-slate-700 dark:text-gray-200">{{ hw.title }}</p>
+                <p class="text-xs text-slate-400 dark:text-gray-500 mt-0.5">
+                    {% if hw.deadline %}Дедлайн: {{ hw.deadline|date:"d.m.Y H:i" }}{% else %}Без дедлайна{% endif %}
+                </p>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar: course lessons -->
+    <div>
+        <h2 class="text-sm font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wide mb-3">Уроки курса</h2>
+                <div class="card divide-y divide-slate-50 dark:divide-gray-700">
+                    {% for l in course.lessons.all %}
+                    <a href="{{ l.get_absolute_url }}"
+                        class="block p-3 text-sm {% if l.pk == lesson.pk %}bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 font-medium{% else %}text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-700{% endif %}">
+                {{ l.order }}. {{ l.title }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

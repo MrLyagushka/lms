@@ -1,0 +1,23 @@
+{% extends 'lms/base.html' %}
+{% block title %}Удаление · ЕГЭ/ОГЭ Подготовка{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto mt-10">
+    <div class="card p-8 text-center">
+        <div class="w-12 h-12 rounded-full bg-red-50 dark:bg-red-900/40 text-red-500 dark:text-red-400 grid place-items-center mx-auto mb-4 text-xl">!</div>
+        <h1 class="text-xl font-semibold text-slate-800 dark:text-gray-100">Подтвердите удаление</h1>
+        <p class="text-slate-500 dark:text-gray-400 mt-2">
+            Вы уверены, что хотите удалить <span class="font-medium text-slate-700 dark:text-gray-200">«{{ object }}»</span>?
+            Действие необратимо.
+        </p>
+        <form method="post" class="flex items-center justify-center gap-3 mt-6">
+            {% csrf_token %}
+            <a href="{{ cancel_url }}" class="text-sm text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 px-5 py-2.5 border border-slate-200 dark:border-gray-700 rounded-xl">Отмена</a>
+            <button type="submit"
+                    class="bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-xl px-5 py-2.5 transition">
+                Удалить
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

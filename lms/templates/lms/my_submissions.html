@@ -1,0 +1,37 @@
+{% extends 'lms/base.html' %}
+{% block title %}Мои работы · ЕГЭ/ОГЭ Подготовка{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-semibold text-slate-800 dark:text-gray-100 mb-6">Мои работы</h1>
+
+{% if submissions %}
+<div class="space-y-3">
+    {% for s in submissions %}
+    <a href="{{ s.homework.get_absolute_url }}" class="card p-5 block hover:border-brand-200 dark:hover:border-brand-700 transition">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="font-medium text-slate-800 dark:text-gray-100">{{ s.homework.title }}</p>
+                <p class="text-xs text-slate-400 dark:text-gray-500 mt-0.5">{{ s.homework.course.title }} · сдано {{ s.submitted_at|date:"d.m.Y H:i" }}</p>
+            </div>
+            <div class="flex items-center gap-3">
+                {% if s.grade is not None %}
+                    <span class="text-sm font-medium text-slate-700 dark:text-gray-200">{{ s.grade }}/100</span>
+                {% endif %}
+                <span class="badge
+                    {% if s.status == 'NEW' %}bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300
+                    {% elif s.status == 'CHECKED' %}bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300
+                    {% else %}bg-amber-50 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300{% endif %}">
+                    {{ s.get_status_display }}
+                </span>
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card p-12 text-center">
+    <p class="text-slate-400 dark:text-gray-500">Вы пока не сдавали работы.</p>
+    <a href="{% url 'course_list' %}" class="inline-block mt-3 text-brand-600 dark:text-brand-400 hover:underline text-sm">Перейти в каталог курсов</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,143 @@
+{% extends 'lms/base.html' %}
+{% block title %}Подготовка к ЕГЭ и ОГЭ · Онлайн-курсы{% endblock %}
+
+{% block content %}
+<!-- HERO -->
+<section class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-600 via-brand-700 to-indigo-900 text-white px-6 sm:px-12 py-16 sm:py-24 mb-16">
+    <div class="relative max-w-2xl">
+        <span class="inline-block badge bg-white/15 text-white backdrop-blur mb-4">Онлайн-подготовка 2026</span>
+        <h1 class="text-3xl sm:text-5xl font-semibold leading-tight">Подготовка к ЕГЭ и ОГЭ</h1>
+        <p class="mt-5 text-white/80 text-lg">
+            Индивидуальные и групповые курсы по всем предметам. Понятная теория, разбор задач
+            и проверка домашних заданий опытным преподавателем.
+        </p>
+        <div class="mt-8 flex flex-wrap gap-3">
+            <a href="{% url 'register' %}"
+               class="inline-flex items-center gap-2 bg-white text-brand-700 hover:bg-brand-50 font-medium rounded-xl px-6 py-3 transition">
+                Начать обучение →
+            </a>
+            <a href="{% url 'login' %}"
+               class="inline-flex items-center gap-2 border border-white/30 hover:bg-white/10 text-white font-medium rounded-xl px-6 py-3 transition">
+                Войти
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- КУРСЫ -->
+<section class="mb-16">
+    <div class="flex items-end justify-between mb-6">
+        <div>
+            <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-100">Доступные курсы</h2>
+            <p class="text-gray-400 dark:text-gray-500 mt-1">Выберите направление подготовки</p>
+        </div>
+    </div>
+
+    {% if courses %}
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {% for course in courses %}
+        <div class="card overflow-hidden border border-gray-100 dark:border-gray-800 flex flex-col">
+            {% if course.cover %}
+                <img src="{{ course.cover.url }}" class="h-36 w-full object-cover" alt="">
+            {% else %}
+                <div class="h-36 w-full bg-gradient-to-br from-brand-500 to-brand-700 flex items-end p-4">
+                    <span class="badge bg-white/20 text-white backdrop-blur">{{ course.get_subject_display }}</span>
+                </div>
+            {% endif %}
+            <div class="p-5 flex flex-col flex-1">
+                {% if course.cover %}
+                    <span class="badge bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 self-start mb-2">{{ course.get_subject_display }}</span>
+                {% endif %}
+                <h3 class="font-medium text-gray-800 dark:text-gray-100">{{ course.title }}</h3>
+                <p class="text-sm text-gray-400 dark:text-gray-500 mt-1 flex-1">{{ course.description|default:"Описание скоро появится"|truncatechars:110 }}</p>
+                <div class="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500 mt-3">
+                    <span>{{ course.num_lessons }} уроков</span>
+                    <span>·</span>
+                    <span>{{ course.num_students }} учеников</span>
+                </div>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-3">Преподаватель: {{ course.teacher.full_name }}</p>
+                <a href="{% url 'register' %}"
+                   class="mt-4 text-center text-sm font-medium rounded-xl px-4 py-2.5 bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white transition">
+                    Записаться
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card border border-gray-100 dark:border-gray-800 p-12 text-center text-gray-400 dark:text-gray-500">
+        Курсы пока не опубликованы. Загляните позже!
+    </div>
+    {% endif %}
+</section>
+
+<!-- О ПРЕПОДАВАТЕЛЕ -->
+<section class="mb-16">
+    <div class="card border border-gray-100 dark:border-gray-800 p-8 sm:p-10 grid md:grid-cols-3 gap-8 items-center">
+        <div class="flex justify-center">
+            <div class="w-40 h-40 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 grid place-items-center text-white text-5xl font-bold">
+                ИП
+            </div>
+        </div>
+        <div class="md:col-span-2">
+            <span class="badge bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300">Преподаватель</span>
+            <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-100 mt-3">Иван Петров</h2>
+            <p class="text-gray-500 dark:text-gray-400 mt-3">
+                Эксперт ЕГЭ с 12-летним стажем. Средний балл учеников — 85+. Автор методики
+                интерактивного разбора задач и персональных траекторий подготовки.
+            </p>
+            <div class="grid grid-cols-3 gap-4 mt-6">
+                <div>
+                    <p class="text-2xl font-semibold text-gray-800 dark:text-gray-100">12+</p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500">лет опыта</p>
+                </div>
+                <div>
+                    <p class="text-2xl font-semibold text-gray-800 dark:text-gray-100">500+</p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500">учеников</p>
+                </div>
+                <div>
+                    <p class="text-2xl font-semibold text-gray-800 dark:text-gray-100">85</p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500">средний балл</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ПРЕИМУЩЕСТВА -->
+<section class="mb-16">
+    <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-6">Почему выбирают нас</h2>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div class="card border border-gray-100 dark:border-gray-800 p-6">
+            <div class="w-11 h-11 rounded-xl bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-300 grid place-items-center text-xl mb-4">📚</div>
+            <h3 class="font-medium text-gray-800 dark:text-gray-100">Структурированные уроки</h3>
+            <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">Вся теория по порядку, от простого к сложному.</p>
+        </div>
+        <div class="card border border-gray-100 dark:border-gray-800 p-6">
+            <div class="w-11 h-11 rounded-xl bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-300 grid place-items-center text-xl mb-4">✅</div>
+            <h3 class="font-medium text-gray-800 dark:text-gray-100">Проверка заданий</h3>
+            <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">Личный комментарий и оценка по каждой работе.</p>
+        </div>
+        <div class="card border border-gray-100 dark:border-gray-800 p-6">
+            <div class="w-11 h-11 rounded-xl bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-300 grid place-items-center text-xl mb-4">⏰</div>
+            <h3 class="font-medium text-gray-800 dark:text-gray-100">Гибкий график</h3>
+            <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">Занимайтесь в удобное время и в своём темпе.</p>
+        </div>
+        <div class="card border border-gray-100 dark:border-gray-800 p-6">
+            <div class="w-11 h-11 rounded-xl bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-300 grid place-items-center text-xl mb-4">📈</div>
+            <h3 class="font-medium text-gray-800 dark:text-gray-100">Прогресс под контролем</h3>
+            <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">Отслеживайте результаты в личном кабинете.</p>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<section class="rounded-3xl bg-gray-900 dark:bg-gray-800 text-white px-6 sm:px-12 py-14 text-center">
+    <h2 class="text-2xl sm:text-3xl font-semibold">Готовы начать подготовку?</h2>
+    <p class="text-white/70 mt-3">Зарегистрируйтесь бесплатно и запишитесь на первый курс.</p>
+    <a href="{% url 'register' %}"
+       class="inline-block mt-6 bg-white text-gray-900 hover:bg-gray-100 font-medium rounded-xl px-6 py-3 transition">
+        Создать аккаунт
+    </a>
+</section>
+{% endblock %}

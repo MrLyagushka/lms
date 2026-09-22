@@ -1,0 +1,42 @@
+{% extends 'lms/base.html' %}
+{% block title %}Вход · ЕГЭ/ОГЭ Подготовка{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto mt-10">
+    <div class="card border border-gray-100 dark:border-gray-800 p-8">
+        <div class="text-center mb-6">
+            <div class="w-12 h-12 rounded-2xl bg-brand-600 dark:bg-brand-500 text-white grid place-items-center text-lg font-bold mx-auto mb-4">Е</div>
+            <h1 class="text-xl font-semibold text-gray-800 dark:text-gray-100">Вход в систему</h1>
+            <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">Управление обучением к ЕГЭ и ОГЭ</p>
+        </div>
+
+        {% if form.errors %}
+            <div class="rounded-xl bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 text-red-700 dark:text-red-300 text-sm px-4 py-3 mb-4">
+                Неверный email или пароль. Попробуйте снова.
+            </div>
+        {% endif %}
+
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Email</label>
+                <input type="email" name="username" class="form-input" autofocus required autocomplete="email">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Пароль</label>
+                <input type="password" name="password" class="form-input" required autocomplete="current-password">
+            </div>
+            <input type="hidden" name="next" value="{{ next }}">
+            <button type="submit"
+                    class="w-full bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white font-medium rounded-xl py-2.5 transition">
+                Войти
+            </button>
+        </form>
+
+        <p class="text-xs text-gray-400 dark:text-gray-500 text-center mt-6">
+            Нет аккаунта?
+            <a href="{% url 'register' %}" class="text-brand-600 dark:text-brand-400 hover:underline">Зарегистрироваться</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

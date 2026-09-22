@@ -1,0 +1,108 @@
+{% extends 'lms/base.html' %}
+{% block title %}{{ homework.title }} · ЕГЭ/ОГЭ Подготовка{% endblock %}
+
+{% block content %}
+<nav class="text-sm text-slate-400 dark:text-gray-500 mb-4">
+    <a href="{{ course.get_absolute_url }}" class="hover:text-brand-600">{{ course.title }}</a>
+    <span class="mx-2">/</span>
+    <span class="text-slate-600 dark:text-gray-300">{{ homework.title }}</span>
+</nav>
+
+<div class="grid lg:grid-cols-3 gap-6">
+    <!-- Task -->
+    <div class="lg:col-span-2">
+        <div class="card p-8">
+            <h1 class="text-2xl font-semibold text-slate-800 dark:text-gray-100">{{ homework.title }}</h1>
+            <p class="text-sm text-slate-400 dark:text-gray-500 mt-1">
+                {% if homework.deadline %}
+                    Дедлайн: {{ homework.deadline|date:"d.m.Y H:i" }}
+                    {% if homework.deadline < now %}<span class="badge bg-red-50 dark:bg-red-900/40 text-red-600 dark:text-red-300 ml-2">Просрочено</span>{% endif %}
+                {% else %}
+                    Без дедлайна
+                {% endif %}
+            </p>
+            <div class="mt-6 text-slate-600 dark:text-gray-300 whitespace-pre-line leading-relaxed">{{ homework.task }}</div>
+            {% if is_owner %}
+            <div class="flex items-center gap-3 mt-6 pt-6 border-t border-slate-100 dark:border-gray-700">
+                            <a href="{% url 'homework_edit' homework.pk %}"
+                                class="text-sm text-brand-600 dark:text-brand-400 hover:underline">Редактировать</a>
+                <a href="{% url 'homework_delete' homework.pk %}" class="text-sm text-red-500 hover:underline">Удалить</a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Teacher: submissions -->
+        {% if is_owner %}
+        <h2 class="text-lg font-semibold text-slate-800 dark:text-gray-100 mb-4 mt-8">Ответы учеников ({{ submissions|length }})</h2>
+        {% if submissions %}
+        <div class="space-y-3">
+            {% for s in submissions %}
+            <div class="card p-4 flex items-center justify-between">
+                <div>
+                    <p class="font-medium text-slate-700 dark:text-gray-200">{{ s.student.full_name }}</p>
+                    <p class="text-xs text-slate-400 dark:text-gray-500">{{ s.submitted_at|date:"d.m.Y H:i" }}</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="badge
+                        {% if s.status == 'NEW' %}bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300
+                        {% elif s.status == 'CHECKED' %}bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300
+                        {% else %}bg-amber-50 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300{% endif %}">
+                        {{ s.get_status_display }}
+                    </span>
+                    <a href="{% url 'submission_check' s.pk %}" class="text-sm text-brand-600 dark:text-brand-400 hover:underline">Проверить</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="card p-8 text-center text-sm text-slate-400 dark:text-gray-500">Ещё никто не сдал работу.</div>
+        {% endif %}
+        {% endif %}
+    </div>
+
+    <!-- Sidebar: student submission -->
+    <div>
+        {% if not is_owner %}
+        <h2 class="text-sm font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wide mb-3">Мой ответ</h2>
+        {% if my_submission %}
+            <div class="card p-5">
+                <span class="badge
+                    {% if my_submission.status == 'NEW' %}bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300
+                    {% elif my_submission.status == 'CHECKED' %}bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300
+                    {% else %}bg-amber-50 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300{% endif %}">
+                    {{ my_submission.get_status_display }}
+                </span>
+                {% if my_submission.grade is not None %}
+                    <p class="text-2xl font-semibold text-slate-800 dark:text-gray-100 mt-3">{{ my_submission.grade }}<span
+                                        class="text-base text-slate-400 dark:text-gray-500">/100</span></p>
+                {% endif %}
+                {% if my_submission.teacher_comment %}
+                    <p class="text-sm text-slate-500 dark:text-gray-400 mt-3">{{ my_submission.teacher_comment }}</p>
+                {% endif %}
+                {% if my_submission.file %}
+                    <a href="{{ my_submission.file.url }}" download class="inline-block mt-3 text-sm text-brand-600 dark:text-brand-400 hover:underline">Скачать прикреплённый файл</a>
+                {% endif %}
+                {% if my_submission.status != 'CHECKED' %}
+                    <a href="{% url 'submission_create' homework.pk %}"
+                       class="block mt-4 text-center bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white text-sm font-medium rounded-xl px-4 py-2.5 transition">
+                                       Редактировать ответ
+                    </a>
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="card p-6 text-center">
+                {% if homework.deadline and homework.deadline < now %}
+                    <p class="text-sm text-red-500">Срок сдачи истёк.</p>
+                {% else %}
+                    <p class="text-sm text-slate-400 dark:text-gray-500 mb-3">Вы ещё не сдали работу.</p>
+                                    <a href="{% url 'submission_create' homework.pk %}"
+                                        class="inline-block bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white text-sm font-medium rounded-xl px-4 py-2.5 transition">
+                        Сдать работу
+                    </a>
+                {% endif %}
+            </div>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

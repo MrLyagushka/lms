@@ -1,0 +1,48 @@
+{% extends 'lms/base.html' %}
+{% block title %}{{ title }} · LMS{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <nav class="text-sm text-slate-400 dark:text-gray-500 mb-4">
+        <a href="{% url 'course_list' %}" class="hover:text-brand-600">Курсы</a>
+        <span class="mx-2">/</span>
+        <span class="text-slate-600 dark:text-gray-300">{{ title }}</span>
+    </nav>
+
+    <h1 class="text-2xl font-semibold text-slate-800 dark:text-gray-100 mb-6">{{ title }}</h1>
+
+    <form method="post" enctype="multipart/form-data" class="card p-8 space-y-5">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+            <div class="rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm px-4 py-3">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        {% for field in form %}
+        <div>
+            <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}
+                <p class="text-xs text-slate-400 dark:text-gray-500 mt-1">{{ field.help_text }}</p>
+            {% endif %}
+            {% for error in field.errors %}
+                <p class="text-xs text-red-500 mt-1">{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endfor %}
+
+        <div class="flex items-center gap-3 pt-2">
+            <button type="submit"
+                    class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl px-5 py-2.5 transition">
+                Сохранить
+            </button>
+            {% if course %}
+                <a href="{{ course.get_absolute_url }}" class="text-sm text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300">Отмена</a>
+            {% else %}
+                <a href="{% url 'course_list' %}" class="text-sm text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300">Отмена</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+{% endblock %}

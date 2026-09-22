@@ -1,0 +1,48 @@
+{% extends 'lms/base.html' %}
+{% block title %}Проверка ответа · ЕГЭ/ОГЭ Подготовка{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <nav class="text-sm text-slate-400 dark:text-gray-500 mb-4">
+        <a href="{{ submission.homework.get_absolute_url }}" class="hover:text-brand-600">{{ submission.homework.title }}</a>
+        <span class="mx-2">/</span>
+        <span class="text-slate-600 dark:text-gray-300">Проверка</span>
+    </nav>
+
+    <h1 class="text-2xl font-semibold text-slate-800 dark:text-gray-100 mb-6">Проверка ответа</h1>
+
+    <div class="grid md:grid-cols-2 gap-6">
+        <!-- Student's answer -->
+        <div class="card p-6">
+            <h2 class="text-sm font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wide mb-3">Ответ ученика</h2>
+            <p class="font-medium text-slate-800 dark:text-gray-100">{{ submission.student.full_name }}</p>
+            <p class="text-xs text-slate-400 dark:text-gray-500 mb-4">{{ submission.submitted_at|date:"d.m.Y H:i" }}</p>
+            <div class="text-slate-600 dark:text-gray-300 whitespace-pre-line text-sm leading-relaxed">{{ submission.answer|default:"— Ответ не введён —" }}</div>
+            {% if submission.file %}
+                <a href="{{ submission.file.url }}" download class="inline-block mt-4 text-sm text-brand-600 dark:text-brand-400 hover:underline">Скачать файл</a>
+            {% endif %}
+        </div>
+
+        <!-- Grade form -->
+        <div class="card p-6">
+            <h2 class="text-sm font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wide mb-3">Оценка</h2>
+            <form method="post" class="space-y-4">
+                {% csrf_token %}
+                {% for field in form %}
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">{{ field.label }}</label>
+                    {{ field }}
+                    {% for error in field.errors %}
+                        <p class="text-xs text-red-500 mt-1">{{ error }}</p>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+                <button type="submit"
+                        class="w-full bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white text-sm font-medium rounded-xl px-5 py-2.5 transition">
+                    Сохранить проверку
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

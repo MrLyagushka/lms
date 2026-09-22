@@ -1,0 +1,95 @@
+{% extends 'lms/base.html' %}
+{% block title %}Дашборд преподавателя · ЕГЭ/ОГЭ Подготовка{% endblock %}
+
+{% block content %}
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+    <div>
+        <h1 class="text-2xl font-semibold text-gray-800 dark:text-gray-100">Здравствуйте, {{ user.full_name }}</h1>
+        <p class="text-gray-400 dark:text-gray-500 mt-1">Панель преподавателя</p>
+    </div>
+    <a href="{% url 'course_create' %}"
+        class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white text-sm font-medium rounded-xl px-4 py-2.5 transition">
+        <span class="text-lg leading-none">+</span> Новый курс
+    </a>
+</div>
+
+<!-- Stats -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div class="card p-5">
+        <p class="text-sm text-gray-400 dark:text-gray-500">Курсы</p>
+        <p class="text-2xl font-semibold text-gray-800 dark:text-gray-100 mt-1">{{ courses_count }}</p>
+    </div>
+    <div class="card p-5">
+        <p class="text-sm text-gray-400 dark:text-gray-500">Ученики</p>
+        <p class="text-2xl font-semibold text-gray-800 dark:text-gray-100 mt-1">{{ students_count }}</p>
+    </div>
+    <div class="card p-5">
+        <p class="text-sm text-gray-400 dark:text-gray-500">Заданий</p>
+        <p class="text-2xl font-semibold text-gray-800 dark:text-gray-100 mt-1">{{ homework_count }}</p>
+    </div>
+    <div class="card p-5">
+        <p class="text-sm text-gray-400 dark:text-gray-500">На проверку</p>
+        <p class="text-2xl font-semibold text-brand-600 dark:text-brand-400 mt-1">{{ new_submissions_count }}</p>
+    </div>
+</div>
+
+<div class="grid lg:grid-cols-3 gap-6">
+    <!-- Courses -->
+    <div class="lg:col-span-2">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Мои курсы</h2>
+            <a href="{% url 'course_list' %}" class="text-sm text-brand-600 dark:text-brand-400 hover:underline">Все курсы</a>
+        </div>
+
+        {% if courses %}
+        <div class="space-y-3">
+            {% for course in courses %}
+            <a href="{{ course.get_absolute_url }}"
+                class="card p-5 flex items-center justify-between hover:border-brand-200 dark:hover:border-brand-700 transition block">
+                <div>
+                    <p class="font-medium text-gray-800 dark:text-gray-100">{{ course.title }}</p>
+                    <p class="text-sm text-gray-400 dark:text-gray-500 mt-0.5">
+                        {{ course.get_subject_display }} ·
+                        {{ course.num_lessons }} уроков ·
+                        {{ course.num_students }} учеников
+                    </p>
+                </div>
+                <span class="text-gray-300 dark:text-gray-600 text-xl">›</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="card p-10 text-center">
+            <p class="text-gray-400 dark:text-gray-500">У вас ещё нет курсов.</p>
+            <a href="{% url 'course_create' %}" class="inline-block mt-3 text-brand-600 dark:text-brand-400 hover:underline text-sm">Создать первый курс</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Recent submissions -->
+    <div>
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Последние ответы</h2>
+            <a href="{% url 'submission_list' %}" class="text-sm text-brand-600 dark:text-brand-400 hover:underline">Все</a>
+        </div>
+        {% if recent_submissions %}
+        <div class="space-y-3">
+            {% for s in recent_submissions %}
+            <a href="{% url 'submission_check' s.pk %}" class="card p-4 block hover:border-brand-200 dark:hover:border-brand-700 transition">
+                <p class="text-sm font-medium text-gray-800 dark:text-gray-100">{{ s.student.full_name }}</p>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ s.homework.title }}</p>
+                <span class="badge mt-2
+                    {% if s.status == 'NEW' %}bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300
+                    {% elif s.status == 'CHECKED' %}bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300
+                    {% else %}bg-amber-50 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300{% endif %}">
+                    {{ s.get_status_display }}
+                </span>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="card p-6 text-center text-sm text-gray-400 dark:text-gray-500">Нет ответов на проверку.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
