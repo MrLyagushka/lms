@@ -7,6 +7,8 @@ urlpatterns = [
     # Публичные страницы
     path("", views.landing, name="landing"),
     path("register/", views.register, name="register"),
+    # FIX: media проходит через проверку владельца/участника в secure_media.
+    path("media/<path:name>", views.secure_media, name="secure_media"),
 
     # Auth
     path(

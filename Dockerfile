@@ -5,6 +5,9 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
+# FIX: gunicorn и Django не должны работать от root.
+RUN addgroup --system lms && adduser --system --ingroup lms lms
+
 # Системные зависимости
 RUN apt-get update && apt-get install -y \
     gcc \
@@ -23,6 +26,9 @@ RUN chmod +x /app/scripts/*.py || true
 
 # Сборка статики
 RUN python manage.py collectstatic --noinput || true
+
+RUN mkdir -p /app/media /app/staticfiles && chown -R lms:lms /app
+USER lms
 
 EXPOSE 8000
 

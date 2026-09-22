@@ -1,4 +1,6 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator, MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
 from django.urls import reverse
 
@@ -53,6 +55,8 @@ class CustomUser(AbstractUser):
         upload_to="avatars/",
         blank=True,
         null=True,
+        # FIX: ограничиваем загружаемые аватары изображениями.
+        validators=[FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png", "webp"])],
     )
 
     USERNAME_FIELD = "email"
@@ -140,6 +144,10 @@ class Course(models.Model):
         ordering = ("-created_at",)
         verbose_name = "Курс"
         verbose_name_plural = "Курсы"
+        indexes = [
+            models.Index(fields=("is_published", "created_at")),
+            models.Index(fields=("teacher", "created_at")),
+        ]
 
     def __str__(self):
         return self.title
@@ -188,6 +196,7 @@ class Enrollment(models.Model):
 
     class Meta:
         unique_together = ("student", "course")
+        indexes = [models.Index(fields=("course", "student"))]
         verbose_name = "Запись на курс"
         verbose_name_plural = "Записи на курсы"
 
@@ -212,6 +221,7 @@ class Lesson(models.Model):
     class Meta:
         ordering = ("order", "id")
         unique_together = ("course", "order")
+        indexes = [models.Index(fields=("course", "order"))]
         verbose_name = "Урок"
         verbose_name_plural = "Уроки"
 
@@ -246,11 +256,17 @@ class Homework(models.Model):
 
     class Meta:
         ordering = ("-created_at",)
+        indexes = [models.Index(fields=("course", "created_at"))]
         verbose_name = "Домашнее задание"
         verbose_name_plural = "Домашние задания"
 
     def __str__(self):
         return self.title
+
+    def clean(self):
+        # FIX: ДЗ не может ссылаться на урок другого курса.
+        if self.lesson_id and self.course_id and self.lesson.course_id != self.course_id:
+            raise ValidationError({"lesson": "Урок должен принадлежать выбранному курсу."})
 
     def get_absolute_url(self):
         return reverse("homework_detail", args=[self.pk])
@@ -282,6 +298,12 @@ class Submission(models.Model):
         upload_to="submissions/",
         blank=True,
         null=True,
+        # FIX: исключаем исполняемые и серверные файлы на уровне модели.
+        validators=[
+            FileExtensionValidator(
+                allowed_extensions=["pdf", "doc", "docx", "odt", "txt", "rtf", "jpg", "jpeg", "png", "webp", "zip"]
+            )
+        ],
     )
     status = models.CharField(
         "Статус",
@@ -293,6 +315,7 @@ class Submission(models.Model):
         "Оценка",
         null=True,
         blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
     )
     teacher_comment = models.TextField("Комментарий преподавателя", blank=True)
     submitted_at = models.DateTimeField("Отправлено", auto_now_add=True)
@@ -301,6 +324,10 @@ class Submission(models.Model):
     class Meta:
         unique_together = ("homework", "student")
         ordering = ("-submitted_at",)
+        indexes = [
+            models.Index(fields=("student", "status")),
+            models.Index(fields=("homework", "status")),
+        ]
         verbose_name = "Ответ на ДЗ"
         verbose_name_plural = "Ответы на ДЗ"
 
@@ -311,14 +338,28 @@ class Theme(models.Model):
 
     name = models.CharField("Название", max_length=100)
     is_active = models.BooleanField("Активна", default=False)
-    primary_color = models.CharField("Основной цвет", max_length=7, default="#4F46E5")
-    secondary_color = models.CharField("Дополнительный цвет", max_length=7, default="#10B981")
-    background_color = models.CharField("Цвет фона", max_length=7, default="#FFFFFF")
-    text_color = models.CharField("Цвет текста", max_length=7, default="#111827")
-    card_background = models.CharField("Фон карточек", max_length=7, default="#FFFFFF")
-    navbar_background = models.CharField("Фон навбара", max_length=7, default="#FFFFFF")
-    font_family = models.CharField("Шрифт", max_length=100, default="Inter, sans-serif")
-    border_radius = models.CharField("Скругление", max_length=20, default="0.5rem")
+    hex_color_validator = RegexValidator(r"^#[0-9A-Fa-f]{6}$", "Укажите HEX-цвет в формате #RRGGBB.")
+    css_value_validator = RegexValidator(
+        r"^(0|0?\.[0-9]+|[1-9][0-9]*\.?[0-9]*)(px|rem|em|%)$",
+        "Используйте значение с единицей px, rem, em или %.",
+    )
+    font_family_validator = RegexValidator(
+        r"^[A-Za-z0-9 ,\'\-]+$",
+        "Недопустимое значение шрифта.",
+    )
+    primary_color = models.CharField("Основной цвет", max_length=7, default="#4F46E5", validators=[hex_color_validator])
+    secondary_color = models.CharField("Дополнительный цвет", max_length=7, default="#10B981", validators=[hex_color_validator])
+    background_color = models.CharField("Цвет фона", max_length=7, default="#FFFFFF", validators=[hex_color_validator])
+    text_color = models.CharField("Цвет текста", max_length=7, default="#111827", validators=[hex_color_validator])
+    card_background = models.CharField("Фон карточек", max_length=7, default="#FFFFFF", validators=[hex_color_validator])
+    navbar_background = models.CharField("Фон навбара", max_length=7, default="#FFFFFF", validators=[hex_color_validator])
+    font_family = models.CharField(
+        "Шрифт",
+        max_length=100,
+        default="Inter, sans-serif",
+        validators=[font_family_validator],
+    )
+    border_radius = models.CharField("Скругление", max_length=20, default="0.5rem", validators=[css_value_validator])
     created_at = models.DateTimeField("Создана", auto_now_add=True)
 
     class Meta:

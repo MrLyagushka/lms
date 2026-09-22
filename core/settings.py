@@ -11,8 +11,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+import secrets
 from pathlib import Path
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -35,11 +37,15 @@ def env_list(name, default=""):
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "fallback-key-for-dev-change-me")
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env_bool("DJANGO_DEBUG", default=True)
+# FIX: production cannot start with a hardcoded or missing secret key.
+DEBUG = env_bool("DJANGO_DEBUG", default=False)
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set when DJANGO_DEBUG=False")
+    SECRET_KEY = secrets.token_urlsafe(50)
+elif not DEBUG and (len(SECRET_KEY) < 50 or SECRET_KEY.startswith(("django-insecure-", "fallback-", "your-"))):
+    raise ImproperlyConfigured("DJANGO_SECRET_KEY must be a long random production secret")
 
 ALLOWED_HOSTS = env_list(
     "DJANGO_ALLOWED_HOSTS",
@@ -65,6 +71,11 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+
+# FIX: bound request bodies and uploaded files before they reach application code.
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("DJANGO_DATA_UPLOAD_MAX_MEMORY_SIZE", str(12 * 1024 * 1024)))
+FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("DJANGO_FILE_UPLOAD_MAX_MEMORY_SIZE", str(10 * 1024 * 1024)))
 
 
 # Application definition

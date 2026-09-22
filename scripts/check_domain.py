@@ -27,8 +27,11 @@ def get_env_domain():
     with open(ENV_FILE, 'r', encoding='utf-8') as f:
         for line in f:
             if line.startswith('DOMAIN_NAME='):
-                value = line.split('=', 1)[1].strip()
-                return value.strip('"').strip("'")
+                value = line.split('=', 1)[1].strip().strip('"').strip("'")
+                if re.fullmatch(r'[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+', value):
+                    return value.lower()
+                print(f"[ERROR] Некорректный домен в .env: {value}")
+                return None
     return None
 
 
@@ -46,8 +49,12 @@ def get_caddy_domain():
 
 def update_caddyfile(new_domain):
     """Обновить домен в Caddyfile"""
-    with open(CADDYFILE, 'r', encoding='utf-8') as f:
-        content = f.read()
+    try:
+        with open(CADDYFILE, 'r', encoding='utf-8') as f:
+            content = f.read()
+    except OSError as exc:
+        print(f"[ERROR] Не удалось прочитать Caddyfile: {exc}")
+        return False
 
     content = re.sub(
         DOMAIN_RE,
@@ -57,19 +64,28 @@ def update_caddyfile(new_domain):
         flags=re.MULTILINE,
     )
 
-    with open(CADDYFILE, 'w', encoding='utf-8') as f:
-        f.write(content)
+    temporary_file = CADDYFILE.with_suffix('.tmp')
+    try:
+        with open(temporary_file, 'w', encoding='utf-8') as f:
+            f.write(content)
+        temporary_file.replace(CADDYFILE)
+    except OSError as exc:
+        print(f"[ERROR] Не удалось обновить Caddyfile: {exc}")
+        return False
 
     print(f"[OK] Caddyfile обновлён: домен изменён на {new_domain}")
+    return True
 
 
 def restart_caddy():
     """Перезапустить Caddy через docker-compose"""
     print("[..] Перезапуск Caddy...")
     # Пытаемся V2, при неудаче — старый docker-compose
-    if os.system('docker compose restart caddy') != 0:
-        os.system('docker-compose restart caddy')
+    if os.system('docker compose restart caddy') != 0 and os.system('docker-compose restart caddy') != 0:
+        print('[ERROR] Не удалось перезапустить Caddy')
+        return False
     print("[OK] Caddy перезапущен")
+    return True
 
 
 def main():
@@ -98,8 +114,8 @@ def main():
         response = input("\nЗаменить домен в Caddyfile на значение из .env? (y/n): ").strip().lower()
 
     if response in ('y', 'yes', 'да'):
-        update_caddyfile(env_domain)
-        restart_caddy()
+        if not update_caddyfile(env_domain) or not restart_caddy():
+            sys.exit(1)
         print("[OK] Готово! Домен обновлён и Caddy перезапущен.")
     else:
         print("[X] Отменено. Домен не изменён.")

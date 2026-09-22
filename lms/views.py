@@ -1,9 +1,12 @@
 from django.contrib import messages
 from django.contrib.auth import authenticate, get_user_model, login
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.core.files.storage import default_storage
 from django.db.models import Count, Q
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_GET
 
 from .decorators import student_required, teacher_required
 from .forms import (
@@ -37,6 +40,44 @@ def landing(request):
     if request.user.is_authenticated:
         return redirect("dashboard")
     return render(request, "lms/landing.html", {"courses": published_courses})
+
+
+@require_GET
+def secure_media(request, name):
+    """Отдаёт media только пользователю, которому разрешен доступ к объекту."""
+    # FIX: media больше не раздается Caddy напрямую, иначе URL файла обходил ACL.
+    if not request.user.is_authenticated or not name or ".." in name or "\\" in name:
+        raise Http404
+
+    submission = Submission.objects.select_related("student", "homework__course").filter(file=name).first()
+    if submission:
+        allowed = (
+            request.user.is_superuser
+            or request.user == submission.student
+            or request.user == submission.homework.course.teacher
+        )
+    else:
+        avatar = User.objects.filter(avatar=name).first()
+        cover = Course.objects.filter(cover=name).first()
+        allowed = bool(avatar or cover)
+        if avatar:
+            allowed = request.user.is_authenticated
+        if cover:
+            allowed = (
+                cover.is_published
+                or cover.teacher_id == request.user.id
+                or Enrollment.objects.filter(course=cover, student=request.user).exists()
+                or request.user.is_superuser
+            )
+
+    if not allowed or not default_storage.exists(name):
+        raise Http404
+
+    try:
+        file_handle = default_storage.open(name, "rb")
+    except (FileNotFoundError, OSError):
+        raise Http404 from None
+    return FileResponse(file_handle, as_attachment=name.startswith("submissions/"), filename=name.rsplit("/", 1)[-1])
 
 
 # --------------------------------------------------------------------------- #
@@ -75,7 +116,7 @@ def dashboard(request):
     if request.user.is_teacher:
         courses = (
             Course.objects.filter(teacher=request.user)
-            .annotate(num_students=Count("enrollments"), num_lessons=Count("lessons"))
+            .annotate(num_students=Count("enrollments", distinct=True), num_lessons=Count("lessons", distinct=True))
         )
         submissions = (
             Submission.objects.filter(homework__course__teacher=request.user)
@@ -98,7 +139,7 @@ def dashboard(request):
         return render(request, "lms/dashboard_teacher.html", context)
 
     # Ученик
-    courses = Course.objects.filter(enrollments__student=request.user)
+    courses = Course.objects.filter(enrollments__student=request.user).select_related("teacher").distinct()
     submissions = Submission.objects.filter(student=request.user).select_related(
         "homework", "homework__course"
     )
@@ -141,6 +182,12 @@ def course_list(request):
         num_homeworks=Count("homeworks", distinct=True),
     )
 
+    # FIX: ученик не видит неопубликованные чужие курсы, преподаватель — чужие черновики.
+    if request.user.is_teacher:
+        courses = courses.filter(Q(is_published=True) | Q(teacher=request.user))
+    else:
+        courses = courses.filter(Q(is_published=True) | Q(enrollments__student=request.user)).distinct()
+
     subject = request.GET.get("subject")
     if subject:
         courses = courses.filter(subject=subject)
@@ -177,13 +224,17 @@ def course_detail(request, pk):
         student=request.user, course=course
     ).exists()
 
+    # FIX: не раскрываем даже метаданные приватного курса постороннему пользователю.
+    if not course.is_published and not (is_owner or is_enrolled or request.user.is_superuser):
+        return redirect("course_list")
+
     # Доступ к содержанию: преподаватель-владелец либо записанный ученик
     can_view_content = is_owner or is_enrolled
 
     context = {
         "course": course,
-        "lessons": course.lessons.all() if can_view_content else [],
-        "homeworks": course.homeworks.all() if can_view_content else [],
+        "lessons": course.lessons.all().select_related("course") if can_view_content else [],
+        "homeworks": course.homeworks.all().select_related("lesson") if can_view_content else [],
         "is_owner": is_owner,
         "is_enrolled": is_enrolled,
         "can_view_content": can_view_content,
@@ -239,7 +290,7 @@ def course_delete(request, pk):
 
 @student_required
 def enroll(request, pk):
-    course = get_object_or_404(Course, pk=pk)
+    course = get_object_or_404(Course, pk=pk, is_published=True)
     Enrollment.objects.get_or_create(student=request.user, course=course)
     messages.success(request, f"Вы записаны на курс «{course.title}».")
     return redirect(course.get_absolute_url())
@@ -446,10 +497,16 @@ def submission_create(request, homework_pk):
         form = SubmissionForm(request.POST, request.FILES, instance=submission)
         if form.is_valid():
             obj = form.save(commit=False)
-            obj.homework = homework
-            obj.student = request.user
-            obj.status = Submission.Status.NEW
-            obj.save()
+            # FIX: уникальная отправка обновляется атомарно, что защищает от двойного POST.
+            Submission.objects.update_or_create(
+                homework=homework,
+                student=request.user,
+                defaults={
+                    "answer": obj.answer,
+                    "file": obj.file,
+                    "status": Submission.Status.NEW,
+                },
+            )
             messages.success(request, "Ответ отправлен на проверку.")
             return redirect(homework.get_absolute_url())
     else:

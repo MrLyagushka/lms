@@ -128,6 +128,13 @@ class SubmissionForm(forms.ModelForm):
             "file": "Прикрепить файл (необязательно)",
         }
 
+    def clean(self):
+        cleaned = super().clean()
+        # FIX: не принимаем пустую отправку без текста и файла.
+        if not cleaned.get("answer", "").strip() and not cleaned.get("file"):
+            raise forms.ValidationError("Добавьте текст ответа или прикрепите файл.")
+        return cleaned
+
 
 class GradeForm(forms.ModelForm):
     """Форма проверки ответа преподавателем."""

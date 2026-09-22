@@ -3,7 +3,8 @@
 
 {% block content %}
 <!-- HERO -->
-<section class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-600 via-brand-700 to-indigo-900 text-white px-6 sm:px-12 py-16 sm:py-24 mb-16">
+<section
+    class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-600 via-brand-700 to-indigo-900 text-white px-6 sm:px-12 py-16 sm:py-24 mb-16">
     <div class="relative max-w-2xl">
         <span class="inline-block badge bg-white/15 text-white backdrop-blur mb-4">Онлайн-подготовка 2026</span>
         <h1 class="text-3xl sm:text-5xl font-semibold leading-tight">Подготовка к ЕГЭ и ОГЭ</h1>
@@ -13,11 +14,11 @@
         </p>
         <div class="mt-8 flex flex-wrap gap-3">
             <a href="{% url 'register' %}"
-               class="inline-flex items-center gap-2 bg-white text-brand-700 hover:bg-brand-50 font-medium rounded-xl px-6 py-3 transition">
+                class="inline-flex items-center gap-2 bg-white text-brand-700 hover:bg-brand-50 font-medium rounded-xl px-6 py-3 transition">
                 Начать обучение →
             </a>
             <a href="{% url 'login' %}"
-               class="inline-flex items-center gap-2 border border-white/30 hover:bg-white/10 text-white font-medium rounded-xl px-6 py-3 transition">
+                class="inline-flex items-center gap-2 border border-white/30 hover:bg-white/10 text-white font-medium rounded-xl px-6 py-3 transition">
                 Войти
             </a>
         </div>
@@ -38,26 +39,30 @@
         {% for course in courses %}
         <div class="card overflow-hidden border border-gray-100 dark:border-gray-800 flex flex-col">
             {% if course.cover %}
-                <img src="{{ course.cover.url }}" class="h-36 w-full object-cover" alt="">
+            <img src="{{ course.cover.url }}" class="h-36 w-full object-cover" alt="">
             {% else %}
-                <div class="h-36 w-full bg-gradient-to-br from-brand-500 to-brand-700 flex items-end p-4">
-                    <span class="badge bg-white/20 text-white backdrop-blur">{{ course.get_subject_display }}</span>
-                </div>
+            <div class="h-36 w-full bg-gradient-to-br from-brand-500 to-brand-700 flex items-end p-4">
+                <span class="badge bg-white/20 text-white backdrop-blur">{{ course.get_subject_display }}</span>
+            </div>
             {% endif %}
             <div class="p-5 flex flex-col flex-1">
                 {% if course.cover %}
-                    <span class="badge bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 self-start mb-2">{{ course.get_subject_display }}</span>
+                <span
+                    class="badge bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 self-start mb-2">{{
+                    course.get_subject_display }}</span>
                 {% endif %}
                 <h3 class="font-medium text-gray-800 dark:text-gray-100">{{ course.title }}</h3>
-                <p class="text-sm text-gray-400 dark:text-gray-500 mt-1 flex-1">{{ course.description|default:"Описание скоро появится"|truncatechars:110 }}</p>
+                <p class="text-sm text-gray-400 dark:text-gray-500 mt-1 flex-1">{{ course.description|default:"Описание
+                    скоро появится"|truncatechars:110 }}</p>
                 <div class="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500 mt-3">
                     <span>{{ course.num_lessons }} уроков</span>
                     <span>·</span>
                     <span>{{ course.num_students }} учеников</span>
                 </div>
-                <p class="text-xs text-gray-400 dark:text-gray-500 mt-3">Преподаватель: {{ course.teacher.full_name }}</p>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-3">Преподаватель: {{ course.teacher.full_name }}
+                </p>
                 <a href="{% url 'register' %}"
-                   class="mt-4 text-center text-sm font-medium rounded-xl px-4 py-2.5 bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white transition">
+                    class="mt-4 text-center text-sm font-medium rounded-xl px-4 py-2.5 bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white transition">
                     Записаться
                 </a>
             </div>
@@ -75,7 +80,8 @@
 <section class="mb-16">
     <div class="card border border-gray-100 dark:border-gray-800 p-8 sm:p-10 grid md:grid-cols-3 gap-8 items-center">
         <div class="flex justify-center">
-            <div class="w-40 h-40 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 grid place-items-center text-white text-5xl font-bold">
+            <div
+                class="w-40 h-40 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 grid place-items-center text-white text-5xl font-bold">
                 ИП
             </div>
         </div>
@@ -109,22 +115,30 @@
     <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-6">Почему выбирают нас</h2>
     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <div class="card border border-gray-100 dark:border-gray-800 p-6">
-            <div class="w-11 h-11 rounded-xl bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-300 grid place-items-center text-xl mb-4">📚</div>
+            <div
+                class="w-11 h-11 rounded-xl bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-300 grid place-items-center text-xl mb-4">
+                📚</div>
             <h3 class="font-medium text-gray-800 dark:text-gray-100">Структурированные уроки</h3>
             <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">Вся теория по порядку, от простого к сложному.</p>
         </div>
         <div class="card border border-gray-100 dark:border-gray-800 p-6">
-            <div class="w-11 h-11 rounded-xl bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-300 grid place-items-center text-xl mb-4">✅</div>
+            <div
+                class="w-11 h-11 rounded-xl bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-300 grid place-items-center text-xl mb-4">
+                ✅</div>
             <h3 class="font-medium text-gray-800 dark:text-gray-100">Проверка заданий</h3>
             <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">Личный комментарий и оценка по каждой работе.</p>
         </div>
         <div class="card border border-gray-100 dark:border-gray-800 p-6">
-            <div class="w-11 h-11 rounded-xl bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-300 grid place-items-center text-xl mb-4">⏰</div>
+            <div
+                class="w-11 h-11 rounded-xl bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-300 grid place-items-center text-xl mb-4">
+                ⏰</div>
             <h3 class="font-medium text-gray-800 dark:text-gray-100">Гибкий график</h3>
             <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">Занимайтесь в удобное время и в своём темпе.</p>
         </div>
         <div class="card border border-gray-100 dark:border-gray-800 p-6">
-            <div class="w-11 h-11 rounded-xl bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-300 grid place-items-center text-xl mb-4">📈</div>
+            <div
+                class="w-11 h-11 rounded-xl bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-300 grid place-items-center text-xl mb-4">
+                📈</div>
             <h3 class="font-medium text-gray-800 dark:text-gray-100">Прогресс под контролем</h3>
             <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">Отслеживайте результаты в личном кабинете.</p>
         </div>
@@ -136,7 +150,7 @@
     <h2 class="text-2xl sm:text-3xl font-semibold">Готовы начать подготовку?</h2>
     <p class="text-white/70 mt-3">Зарегистрируйтесь бесплатно и запишитесь на первый курс.</p>
     <a href="{% url 'register' %}"
-       class="inline-block mt-6 bg-white text-gray-900 hover:bg-gray-100 font-medium rounded-xl px-6 py-3 transition">
+        class="inline-block mt-6 bg-white text-gray-900 hover:bg-gray-100 font-medium rounded-xl px-6 py-3 transition">
         Создать аккаунт
     </a>
 </section>

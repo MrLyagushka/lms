@@ -59,13 +59,25 @@ def parse_env(filepath):
 
 def save_env(filepath, data):
     # Сохраняет словарь в .env файл (названия ключей сохраняем)
-    with open(filepath, "w", encoding="utf-8") as f:
+    # FIX: секреты в .env не должны оставаться читаемыми для всех пользователей.
+    temporary_file = filepath.with_suffix(".tmp")
+    with open(temporary_file, "w", encoding="utf-8") as f:
         for key, value in data.items():
             f.write(f"{key}={value}\n")
+    temporary_file.replace(filepath)
+    try:
+        filepath.chmod(0o600)
+    except OSError as exc:
+        print(f"[WARN] Не удалось ограничить права {filepath}: {exc}")
 
 
 def is_empty(value):
-    return value is None or value.strip() in PLACEHOLDER_VALUES
+    normalized = (value or "").strip()
+    return (
+        not normalized
+        or normalized in PLACEHOLDER_VALUES
+        or normalized.startswith(("django-insecure-", "fallback-", "your-"))
+    )
 
 
 def main():
@@ -136,11 +148,15 @@ def main():
 
     # 4. Сохранение
     if changed:
-        save_env(ENV_FILE, env_data)
+        try:
+            save_env(ENV_FILE, env_data)
+        except OSError as exc:
+            print(f"\n[ERROR] Не удалось сохранить .env: {exc}")
+            return 1
         print(f"\n[OK] .env сохранён: {ENV_FILE}")
     else:
         print("\n[OK] .env уже полностью настроен, изменений не внесено")
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main() or 0)
