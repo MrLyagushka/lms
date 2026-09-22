@@ -23,7 +23,7 @@ restart:         ## Перезапустить проект
 logs:            ## Логи всех сервисов
 	docker compose logs -f
 
-deploy: check-domain up  ## Полный деплой с проверкой домена
+deploy: up check-domain  ## Полный деплой: сначала запуск (up), потом проверка домена
 
 shell:           ## Bash в контейнере web
 	docker compose exec web bash
