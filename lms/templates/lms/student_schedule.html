@@ -1,0 +1,77 @@
+{% extends 'lms/base.html' %}
+{% block title %}Расписание занятий · {{ student.full_name|default:student.email }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <nav class="text-sm text-slate-400 dark:text-gray-500 mb-4">
+        <a href="{% url 'students_list' %}" class="hover:text-brand-600">Ученики</a>
+        <span class="mx-2">/</span>
+        <a href="{% url 'student_detail' student.pk %}" class="hover:text-brand-600">{{ student.full_name|default:student.email }}</a>
+        <span class="mx-2">/</span>
+        <span class="text-slate-600 dark:text-gray-300">Расписание</span>
+    </nav>
+
+    <h1 class="text-2xl font-semibold text-slate-800 dark:text-gray-100 mb-2">
+        Расписание занятий · {{ student.full_name|default:student.email }}
+    </h1>
+    <p class="text-sm text-slate-500 dark:text-gray-400 mb-6">
+        Дата и отметка «проведено» хранятся индивидуально для этого ученика.
+        При отметке «проведено» автоматически выдаются ДЗ с включённой автовыдачей.
+        Пустое поле даты — занятие снимается.
+    </p>
+
+    {% if rows %}
+        {% for row in rows %}
+        <form method="post" class="card p-6 mb-5">
+            {% csrf_token %}
+            <input type="hidden" name="enrollment" value="{{ row.enrollment.pk }}">
+            <h2 class="text-sm font-semibold text-slate-700 dark:text-gray-200 mb-4">
+                <a href="{{ row.enrollment.course.get_absolute_url }}" class="hover:text-brand-600">{{ row.enrollment.course.title }}</a>
+            </h2>
+            {% if row.lessons %}
+            <div class="divide-y divide-slate-50 dark:divide-gray-800/60">
+                {% for item in row.lessons %}
+                <div class="py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                    <div class="flex-1 min-w-0">
+                        <a href="{{ item.lesson.get_absolute_url }}" class="text-sm font-medium text-slate-700 dark:text-gray-200 hover:text-brand-600">
+                            {{ item.lesson.order }}. {{ item.lesson.title }}
+                        </a>
+                        {% if item.date_obj and item.date_obj.is_conducted %}
+                            <span class="badge bg-emerald-50 text-emerald-700 ml-2">проведено</span>
+                        {% endif %}
+                    </div>
+                    <div class="flex items-center gap-3">
+                        {{ item.form.is_conducted }}
+                        <label class="text-xs text-slate-500 dark:text-gray-400 mr-1">проведено</label>
+                        <div class="sm:w-60">
+                            {{ item.form.date }}
+                            {% for error in item.form.date.errors %}
+                                <p class="text-xs text-red-500 mt-1">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="pt-4">
+                <button type="submit"
+                        class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl px-5 py-2.5 transition">
+                    Сохранить расписание
+                </button>
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-400 dark:text-gray-500">В курсе пока нет уроков.</p>
+            {% endif %}
+        </form>
+        {% endfor %}
+    {% else %}
+    <div class="card p-10 text-center">
+        <p class="text-sm text-slate-500 dark:text-gray-400 mb-4">Ученик пока не привязан ни к одному курсу.</p>
+        <a href="{% url 'student_detail' student.pk %}"
+           class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl px-5 py-2.5 transition">
+            Открыть карточку ученика
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

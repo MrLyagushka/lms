@@ -1,0 +1,130 @@
+{% extends 'lms/base.html' %}
+{% block title %}Импорт из JSON · {{ course.title }}{% endblock %}
+
+{% block content %}
+<nav class="text-sm text-slate-400 dark:text-gray-500 mb-4">
+    <a href="{% url 'course_list' %}" class="hover:text-brand-600">Курсы</a>
+    <span class="mx-2">/</span>
+    <a href="{{ course.get_absolute_url }}" class="hover:text-brand-600">{{ course.title }}</a>
+    <span class="mx-2">/</span>
+    <span class="text-gray-600 dark:text-gray-300">Импорт из JSON</span>
+</nav>
+
+<div class="max-w-3xl mx-auto space-y-6">
+    <div>
+        <h1 class="text-2xl font-semibold text-gray-800 dark:text-gray-100">Импорт уроков и ДЗ из JSON</h1>
+        <p class="text-gray-400 dark:text-gray-500 mt-1">
+            Загрузите файл <code class="text-brand-600">.json</code> или вставьте текст — будут созданы уроки
+            курса и домашние задания (в том числе состоящие из нескольких задач).
+            Полное описание формата — в <a href="{% url 'settings_json' %}" class="text-brand-600 hover:underline">Настройках → JSON-шаблоны</a>.
+        </p>
+    </div>
+
+    {% if has_problems %}
+    <div class="card border border-red-200 dark:border-red-800 bg-red-50/60 dark:bg-red-900/20 p-5">
+        <p class="font-medium text-red-600 dark:text-red-300 mb-2">Импорт не выполнен — исправьте ошибки:</p>
+        <ul class="list-disc list-inside space-y-1 text-sm text-red-600 dark:text-red-300">
+            {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+        </ul>
+        <p class="text-xs text-red-500 dark:text-red-400 mt-3">
+            Ни один объект не был сохранён: при ошибке отменяется весь импорт.
+        </p>
+    </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" class="card p-6 space-y-4">
+        {% csrf_token %}
+        <div>
+            <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">JSON-файл</label>
+            <input type="file" name="json_file" accept=".json,application/json" class="form-file">
+            <p class="text-xs text-slate-400 dark:text-gray-500 mt-1">Или вставьте содержимое в поле ниже — файл имеет приоритет.</p>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Текст JSON</label>
+            <textarea name="json_text" rows="14" class="form-input font-mono text-xs"
+                      placeholder='{"lessons": [ ... ], "homeworks": [ ... ]}'></textarea>
+        </div>
+        <div class="flex flex-wrap items-center gap-3 pt-1">
+            <button type="submit"
+                class="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white text-sm font-medium rounded-xl px-5 py-2.5 transition">
+                Импортировать
+            </button>
+            <button type="button" id="fill-example"
+                class="text-sm border border-slate-200 dark:border-gray-700 hover:border-brand-300 hover:text-brand-600 rounded-xl px-4 py-2.5 transition">
+                Вставить пример
+            </button>
+            <a href="{{ course.get_absolute_url }}"
+               class="text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">Отмена</a>
+        </div>
+    </form>
+
+    <div class="card p-6">
+        <h2 class="font-semibold text-gray-800 dark:text-gray-100 mb-3">Краткая шпаргалка</h2>
+        <ul class="list-disc list-inside space-y-1.5 text-sm text-gray-600 dark:text-gray-300">
+            <li><code class="text-brand-600">lessons[]</code> — уроки: <code class="text-brand-600">title</code> (обязательно), <code class="text-brand-600">content</code> (материалы), <code class="text-brand-600">homeworks[]</code> — ДЗ этого урока.</li>
+            <li><code class="text-brand-600">homeworks[]</code> (в корне) — ДЗ без привязки к уроку.</li>
+            <li>ДЗ: <code class="text-brand-600">title</code> (обязательно), <code class="text-brand-600">task</code>, <code class="text-brand-600">answer_type</code> (NONE / EXACT / NUMERIC / MULTIPLE), <code class="text-brand-600">expected_answer</code>, <code class="text-brand-600">numeric_tolerance</code>, <code class="text-brand-600">require_photo</code>, <code class="text-brand-600">auto_issue</code>, <code class="text-brand-600">issued</code>, <code class="text-brand-600">deadline</code>.</li>
+            <li><code class="text-brand-600">problems[]</code> внутри ДЗ — отдельные задачи: <code class="text-brand-600">text</code>, <code class="text-brand-600">answer_type</code>, <code class="text-brand-600">expected_answer</code>, <code class="text-brand-600">numeric_tolerance</code>, <code class="text-brand-600">order</code>.</li>
+            <li>Даты — строки «2025-09-15» или «2025-09-15 18:00». LaTeX в тексте поддерживается как обычно ($…$).</li>
+        </ul>
+    </div>
+</div>
+
+<script id="example-json-data" type="application/json">{
+  "lessons": [
+    {
+      "title": "Квадратные уравнения",
+      "content": "Теорема Виета: $x_1 + x_2 = -b/a$. Формула корней: $$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$",
+      "homeworks": [
+        {
+          "title": "ДЗ 1. Квадратные уравнения",
+          "task": "Решите уравнения. Оформите решение на фото.",
+          "require_photo": true,
+          "auto_issue": true,
+          "deadline": "2025-09-20 18:00",
+          "problems": [
+            {
+              "text": "Решите уравнение $x^2 - 5x + 6 = 0$. В ответе запишите оба корня, каждый с новой строки.",
+              "answer_type": "MULTIPLE",
+              "expected_answer": "2\n3"
+            },
+            {
+              "text": "Найдите произведение корней уравнения $x^2 - 7x + 10 = 0$.",
+              "answer_type": "NUMERIC",
+              "expected_answer": "10",
+              "numeric_tolerance": 0.01
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Неравенства",
+      "content": "Метод интервалов. Пример с модулем: $|x - 1| = 3 \\Rightarrow x = 4$ или $x = -2$.",
+      "homeworks": [
+        {
+          "title": "ДЗ 2. Неравенства",
+          "task": "Решите неравенство $(x-1)(x+4) < 0$.",
+          "answer_type": "EXACT",
+          "expected_answer": "(-1; 4)"
+        }
+      ]
+    }
+  ],
+  "homeworks": [
+    {
+      "title": "Дополнительное задание",
+      "task": "Упростите выражение $\\frac{a^3}{a}$ и вычислите $\\sqrt{2} \\cdot \\sqrt{8}$ при $a \\neq 0$.",
+      "answer_type": "EXACT",
+      "expected_answer": "a^2"
+    }
+  ]
+}</script>
+<script>
+    document.getElementById('fill-example').addEventListener('click', function () {
+        const ta = document.querySelector('textarea[name="json_text"]');
+        ta.value = JSON.stringify(JSON.parse(document.getElementById('example-json-data').textContent), null, 2);
+        ta.focus();
+    });
+</script>
+{% endblock %}

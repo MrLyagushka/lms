@@ -11,17 +11,129 @@
 
     <h1 class="text-2xl font-semibold text-slate-800 dark:text-gray-100 mb-6">{{ title }}</h1>
 
-    <form method="post" class="card p-8 space-y-5">
+    <form method="post" enctype="multipart/form-data" class="card p-8 space-y-5">
         {% csrf_token %}
         {% for field in form %}
         <div>
             <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">{{ field.label }}</label>
+            {% if field.name == "task" %}{% include "lms/latex_toolbar.html" %}{% endif %}
             {{ field }}
             {% for error in field.errors %}
                 <p class="text-xs text-red-500 mt-1">{{ error }}</p>
             {% endfor %}
         </div>
         {% endfor %}
+
+        <!-- FIX: ДЗ из нескольких задач — inline formset с динамическими строками -->
+        <div class="border-t border-slate-100 dark:border-gray-700 pt-5">
+            <h2 class="text-lg font-semibold text-slate-800 dark:text-gray-100 mb-1">Задачи домашнего задания</h2>
+            <p class="text-sm text-slate-400 dark:text-gray-500 mb-4">
+                Необязательно. Если добавить задачи, ученик будет отвечать на каждую отдельно,
+                а автопроверка — по каждой задаче.
+            </p>
+            {{ formset.management_form }}
+            <div id="problems-container" class="space-y-4">
+                {% for pf in formset %}
+                <div class="problem-row rounded-xl border border-slate-100 dark:border-gray-700 p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-semibold text-brand-600 dark:text-brand-400">
+                            Задача <span class="problem-number">{{ forloop.counter }}</span>
+                        </span>
+                        <label class="flex items-center gap-1 text-xs text-red-500">
+                            {{ pf.DELETE }}<span>Удалить</span>
+                        </label>
+                    </div>
+                    {{ pf.id }}
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">Условие задачи</label>
+                        {% include "lms/latex_toolbar.html" %}
+                        {{ pf.text }}
+                        <p class="text-xs text-slate-400 dark:text-gray-500 mt-1">Поддерживается LaTeX: $...$ и $$...$$.</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">Изображение задачи</label>
+                        {{ pf.image }}
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">Тип ответа</label>
+                            {{ pf.answer_type }}
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">Номер</label>
+                            {{ pf.order }}
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">Верный ответ</label>
+                            {{ pf.expected_answer }}
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">Допуск</label>
+                            {{ pf.numeric_tolerance }}
+                        </div>
+                    </div>
+                    {% for error in pf.non_field_errors %}
+                        <p class="text-xs text-red-500">{{ error }}</p>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+
+            <template id="problem-empty-row">
+                <div class="problem-row rounded-xl border border-slate-100 dark:border-gray-700 p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-semibold text-brand-600 dark:text-brand-400">
+                            Задача <span class="problem-number">__NUM__</span>
+                        </span>
+                        <label class="flex items-center gap-1 text-xs text-red-500">
+                            <input type="checkbox" name="problems-__prefix__-DELETE" id="id_problems-__prefix__-DELETE"><span>Удалить</span>
+                        </label>
+                    </div>
+                    <input type="hidden" name="problems-__prefix__-id" id="id_problems-__prefix__-id">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">Условие задачи</label>
+                        {% include "lms/latex_toolbar.html" %}
+                        <textarea name="problems-__prefix__-text" id="id_problems-__prefix__-text" class="form-input" rows="3" placeholder="Условие задачи. Поддерживается LaTeX: $2x+3=7$"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">Изображение задачи</label>
+                        <input type="file" name="problems-__prefix__-image" id="id_problems-__prefix__-image" class="form-file" accept=".jpg,.jpeg,.png,.webp">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">Тип ответа</label>
+                            <select name="problems-__prefix__-answer_type" id="id_problems-__prefix__-answer_type" class="form-input">
+                                <option value="NONE" selected>Без автопроверки (ручная проверка)</option>
+                                <option value="EXACT">Точное совпадение</option>
+                                <option value="NUMERIC">Числовой ответ (с допуском)</option>
+                                <option value="MULTIPLE">Несколько вариантов (все верные)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">Номер</label>
+                            <input type="number" name="problems-__prefix__-order" value="__NUM__" id="id_problems-__prefix__-order" class="form-input" min="1">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">Верный ответ</label>
+                            <textarea name="problems-__prefix__-expected_answer" id="id_problems-__prefix__-expected_answer" class="form-input" rows="2" placeholder="Верный ответ (для автопроверки)"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">Допуск</label>
+                            <input type="number" name="problems-__prefix__-numeric_tolerance" value="0.0" id="id_problems-__prefix__-numeric_tolerance" class="form-input" min="0" step="0.01" placeholder="0.01 = 1%">
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <button type="button" id="add-problem"
+                    class="mt-4 text-sm text-brand-600 dark:text-brand-400 hover:underline">
+                + Добавить задачу
+            </button>
+        </div>
 
         <div class="flex items-center gap-3 pt-2">
             <button type="submit"
@@ -32,4 +144,20 @@
         </div>
     </form>
 </div>
+
+<script>
+(function () {
+    const container = document.getElementById('problems-container');
+    const tpl = document.getElementById('problem-empty-row');
+    const totalInput = container.parentElement.querySelector('input[name$="TOTAL_FORMS"]');
+    document.getElementById('add-problem').addEventListener('click', function () {
+        const idx = parseInt(totalInput.value, 10);
+        const html = tpl.innerHTML.replace(/__prefix__/g, String(idx)).replace(/__NUM__/g, String(idx + 1));
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html.trim();
+        container.appendChild(wrapper.firstChild);
+        totalInput.value = String(idx + 1);
+    });
+})();
+</script>
 {% endblock %}

@@ -1,0 +1,92 @@
+{% extends 'lms/base.html' %}
+{% block title %}Ученики · ЕГЭ/ОГЭ Подготовка{% endblock %}
+
+{% block content %}
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl font-semibold text-slate-800 dark:text-gray-100">Ученики</h1>
+        <p class="text-slate-400 dark:text-gray-500 mt-1">
+            Все ученики ваших курсов · {{ total_count }}
+        </p>
+    </div>
+    <a href="{% url 'dashboard' %}" class="text-sm text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300">← Дашборд</a>
+</div>
+
+<!-- Поиск -->
+<form method="get" class="card p-4 mb-6 flex flex-col sm:flex-row gap-3">
+    <input type="text" name="q" value="{{ q }}" class="form-input flex-1"
+           placeholder="Поиск по имени, фамилии или email…">
+    <div class="flex gap-2">
+        <button type="submit"
+                class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl px-5 py-2.5 transition">
+            Найти
+        </button>
+        {% if q %}<a href="{% url 'students_list' %}" class="px-4 py-2.5 text-sm text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200">Сбросить</a>{% endif %}
+    </div>
+</form>
+
+{% if rows %}
+<div class="card overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-left text-slate-400 dark:text-gray-500 border-b border-slate-100 dark:border-gray-800">
+                    <th class="px-5 py-3 font-medium">Ученик</th>
+                    <th class="px-5 py-3 font-medium">Курсы</th>
+                    <th class="px-5 py-3 font-medium">Работы</th>
+                    <th class="px-5 py-3 font-medium">Ср. балл</th>
+                    <th class="px-5 py-3 font-medium">След. занятие</th>
+                    <th class="px-5 py-3 font-medium"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-50 dark:divide-gray-800/60">
+                {% for row in rows %}
+                <tr class="hover:bg-slate-50/60 dark:hover:bg-gray-800/40 transition">
+                    <td class="px-5 py-3">
+                        <div class="flex items-center gap-3">
+                            {% if row.student.avatar %}
+                                <img src="{{ row.student.avatar.url }}" class="w-9 h-9 rounded-full object-cover" alt="">
+                            {% else %}
+                                <span class="w-9 h-9 rounded-full bg-brand-100 dark:bg-brand-900/50 text-brand-700 dark:text-brand-300 grid place-items-center text-sm font-medium">
+                                    {{ row.student.full_name|slice:':1'|upper }}
+                                </span>
+                            {% endif %}
+                            <div>
+                                <p class="font-medium text-slate-700 dark:text-gray-200">
+                                    {{ row.student.full_name }}
+                                    {% if not row.student.is_active %}
+                                        <span class="badge bg-red-50 dark:bg-red-900/40 text-red-600 dark:text-red-300 ml-1">Неактивен</span>
+                                    {% endif %}
+                                </p>
+                                <p class="text-xs text-slate-400 dark:text-gray-500">{{ row.student.email }}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-5 py-3 text-slate-600 dark:text-gray-300">{{ row.courses_count }}</td>
+                    <td class="px-5 py-3 text-slate-600 dark:text-gray-300">
+                        {{ row.total }}
+                        {% if row.new_count %}
+                            <span class="badge bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 ml-1" title="Ждут проверки">на проверке: {{ row.new_count }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-5 py-3 text-slate-600 dark:text-gray-300">
+                        {% if row.avg_grade is not None %}{{ row.avg_grade|floatformat:1 }}{% else %}—{% endif %}
+                    </td>
+                    <td class="px-5 py-3 text-slate-600 dark:text-gray-300">
+                        {% if row.next_date %}{{ row.next_date|date:"d.m.Y H:i" }}{% else %}—{% endif %}
+                    </td>
+                    <td class="px-5 py-3 text-right">
+                        <a href="{% url 'student_detail' row.student.pk %}" class="text-sm text-brand-600 dark:text-brand-400 hover:underline">Открыть</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card p-12 text-center text-slate-400 dark:text-gray-500">
+    {% if q %}По запросу «{{ q }}» учеников не найдено.{% else %}У вас пока нет учеников. Привяжите их на странице курса.{% endif %}
+</div>
+{% endif %}
+{% endblock %}

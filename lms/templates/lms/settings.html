@@ -1,13 +1,6 @@
-{% extends 'lms/base.html' %}
-{% block title %}Настройки темы · ЕГЭ/ОГЭ Подготовка{% endblock %}
+{% extends 'lms/settings_base.html' %}
 
-{% block content %}
-<div class="mb-6">
-    <h1 class="text-2xl font-semibold text-gray-800 dark:text-gray-100">Настройки темы</h1>
-    <p class="text-gray-400 dark:text-gray-500 mt-1">Управление кастомным оформлением сайта (доступно суперпользователю)
-    </p>
-</div>
-
+{% block settings_content %}
 <div class="grid lg:grid-cols-2 gap-6">
     <!-- Список тем -->
     <div>
@@ -21,8 +14,7 @@
                         <p class="font-medium text-gray-800 dark:text-gray-100 flex items-center gap-2">
                             {{ t.name }}
                             {% if t.is_active %}<span
-                                class="badge bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">Активна</span>{%
-                            endif %}
+                                class="badge bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">Активна</span>{% endif %}
                         </p>
                         <div class="flex items-center gap-2 mt-3">
                             <span class="w-5 h-5 rounded border border-gray-200 dark:border-gray-700"
@@ -76,6 +68,13 @@
             {% csrf_token %}
             {% if editing %}<input type="hidden" name="theme_id" value="{{ editing.pk }}">{% endif %}
 
+            {# FIX: показываем ошибки формы целиком — раньше выводились только ошибки поля «Название» #}
+            {% if form.non_field_errors %}
+                <div class="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/30 px-4 py-3 space-y-1">
+                    {% for e in form.non_field_errors %}<p class="text-xs text-red-600 dark:text-red-300">{{ e }}</p>{% endfor %}
+                </div>
+            {% endif %}
+
             <div>
                 <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Название темы</label>
                 {{ form.name }}
@@ -86,37 +85,50 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Основной цвет</label>
                     {{ form.primary_color }}
+                    {% for e in form.primary_color.errors %}<p class="text-xs text-red-500 mt-1">{{ e }}</p>{% endfor %}
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Доп. цвет</label>
                     {{ form.secondary_color }}
+                    {% for e in form.secondary_color.errors %}<p class="text-xs text-red-500 mt-1">{{ e }}</p>{% endfor %}
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Цвет фона</label>
                     {{ form.background_color }}
+                    {% for e in form.background_color.errors %}<p class="text-xs text-red-500 mt-1">{{ e }}</p>{% endfor %}
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Цвет текста</label>
                     {{ form.text_color }}
+                    {% for e in form.text_color.errors %}<p class="text-xs text-red-500 mt-1">{{ e }}</p>{% endfor %}
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Фон карточек</label>
                     {{ form.card_background }}
+                    {% for e in form.card_background.errors %}<p class="text-xs text-red-500 mt-1">{{ e }}</p>{% endfor %}
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Фон навбара</label>
                     {{ form.navbar_background }}
+                    {% for e in form.navbar_background.errors %}<p class="text-xs text-red-500 mt-1">{{ e }}</p>{% endfor %}
                 </div>
             </div>
 
             <div>
                 <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Шрифт</label>
                 {{ form.font_family }}
+                <datalist id="font-options">
+                    {% for value, label in font_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </datalist>
+                {% for e in form.font_family.errors %}<p class="text-xs text-red-500 mt-1">{{ e }}</p>{% endfor %}
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Скругление
                     (border-radius)</label>
                 {{ form.border_radius }}
+                {% for e in form.border_radius.errors %}<p class="text-xs text-red-500 mt-1">{{ e }}</p>{% endfor %}
             </div>
             <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
                 {{ form.is_active }} Сделать активной
@@ -128,7 +140,7 @@
                     {% if editing %}Сохранить изменения{% else %}Создать тему{% endif %}
                 </button>
                 {% if editing %}
-                <a href="{% url 'theme_settings' %}"
+                <a href="{% url 'settings' %}"
                     class="text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">Отмена</a>
                 {% endif %}
             </div>

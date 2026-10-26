@@ -16,6 +16,7 @@
         {% for field in form %}
         <div>
             <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">{{ field.label }}</label>
+            {% if field.name == "content" %}{% include "lms/latex_toolbar.html" %}{% endif %}
             {{ field }}
             {% for error in field.errors %}
                 <p class="text-xs text-red-500 mt-1">{{ error }}</p>

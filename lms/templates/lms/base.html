@@ -58,6 +58,29 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
+    <!-- KaTeX (рендеринг LaTeX-формул) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            if (typeof katex === "undefined") { return; }
+            document.querySelectorAll(".katex-src").forEach(function (el) {
+                var formula = el.getAttribute("data-formula") || "";
+                try {
+                    katex.render(formula, el, {
+                        throwOnError: false,
+                        displayMode: el.classList.contains("katex-display"),
+                    });
+                } catch (e) {
+                    el.textContent = formula;
+                }
+            });
+        });
+    </script>
+
+    <!-- Панель быстрой вставки LaTeX-формул в textarea -->
+    <script defer src="{% static 'js/latex.js' %}"></script>
+
     <!-- CSS-переменные кастомной темы -->
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
 
@@ -116,12 +139,13 @@
                             <a href="{% url 'dashboard' %}" class="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">Мои курсы</a>
                             {% if user.is_teacher %}
                                 <a href="{% url 'submission_list' %}" class="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">Задания</a>
+                                <a href="{% url 'students_list' %}" class="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">Ученики</a>
                             {% else %}
                                 <a href="{% url 'my_submissions' %}" class="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">Задания</a>
                             {% endif %}
                             <a href="{% url 'course_list' %}" class="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">Курсы</a>
                             {% if user.is_superuser %}
-                                <a href="{% url 'theme_settings' %}" class="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">Настройки темы</a>
+                                <a href="{% url 'settings' %}" class="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">Настройки</a>
                             {% endif %}
                         </div>
 

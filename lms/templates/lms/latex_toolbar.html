@@ -1,0 +1,22 @@
+{# Кнопки быстрой вставки LaTeX-формул. #}
+{# Вставляется рядом с <textarea>; JS из static/js/latex.js находит ближайший textarea в родителе. #}
+<div class="flex flex-wrap items-center gap-1 mb-1.5" data-latex-toolbar>
+    <span class="text-xs text-slate-400 dark:text-gray-500 mr-1">Формулы:</span>
+    <button type="button" class="latex-btn px-2 py-1 text-xs font-mono rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-slate-100 dark:hover:bg-gray-800 transition" data-ins="$\sqrt{}$" title="Квадратный корень: √x">√</button>
+    <button type="button" class="latex-btn px-2 py-1 text-xs font-mono rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-slate-100 dark:hover:bg-gray-800 transition" data-ins="$|{}|$" title="Модуль: |x|">|x|</button>
+    <button type="button" class="latex-btn px-2 py-1 text-xs font-mono rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-slate-100 dark:hover:bg-gray-800 transition" data-ins="$\frac{}{}$" title="Обыкновенная дробь">⁄</button>
+    <button type="button" class="latex-btn px-2 py-1 text-xs font-mono rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-slate-100 dark:hover:bg-gray-800 transition" data-ins="x^{}" title="Степень: x^n">x²</button>
+    <button type="button" class="latex-btn px-2 py-1 text-xs font-mono rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-slate-100 dark:hover:bg-gray-800 transition" data-ins="x_{}" title="Индекс: x₁">x₁</button>
+    <button type="button" class="latex-btn px-2 py-1 text-xs font-mono rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-slate-100 dark:hover:bg-gray-800 transition" data-ins="$\pi$" title="Число π">π</button>
+    <button type="button" class="latex-btn px-2 py-1 text-xs font-mono rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-slate-100 dark:hover:bg-gray-800 transition" data-ins="$\le$" title="≤">≤</button>
+    <button type="button" class="latex-btn px-2 py-1 text-xs font-mono rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-slate-100 dark:hover:bg-gray-800 transition" data-ins="$\ge$" title="≥">≥</button>
+    <button type="button" class="latex-btn px-2 py-1 text-xs font-mono rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-slate-100 dark:hover:bg-gray-800 transition" data-ins="$\ne$" title="≠">≠</button>
+    <button type="button" class="latex-btn px-2 py-1 text-xs font-mono rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-slate-100 dark:hover:bg-gray-800 transition" data-ins="$\times$" title="×">×</button>
+    <button type="button" class="latex-btn px-2 py-1 text-xs font-mono rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-slate-100 dark:hover:bg-gray-800 transition" data-ins="$\div$" title="÷">÷</button>
+    <button type="button" class="latex-btn px-2 py-1 text-xs font-mono rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-slate-100 dark:hover:bg-gray-800 transition" data-ins="$\infty$" title="∞">∞</button>
+    <button type="button" class="latex-btn px-2 py-1 text-xs font-mono rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-slate-100 dark:hover:bg-gray-800 transition" data-ins="$\sum_{}^{}$" title="Сумма">∑</button>
+    <button type="button" class="latex-btn px-2 py-1 text-xs font-mono rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-slate-100 dark:hover:bg-gray-800 transition" data-ins="$\int_{}^{}$" title="Интеграл">∫</button>
+    <button type="button" class="latex-btn px-2 py-1 text-xs font-mono rounded-lg border border-slate-200 dark:border-gray-700 hover:bg-slate-100 dark:hover:bg-gray-800 transition" data-ins="$$
+{}
+$$" title="Формула отдельной строкой">$$…$$</button>
+</div>

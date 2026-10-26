@@ -1,4 +1,5 @@
 {% extends 'lms/base.html' %}
+{% load lms_extras %}
 {% block title %}{{ lesson.title }} · ЕГЭ/ОГЭ Подготовка{% endblock %}
 
 {% block content %}
@@ -15,15 +16,21 @@
     <div class="lg:col-span-3">
         <div class="card p-8">
             <div class="flex items-center gap-3 mb-4">
-                <span class="w-10 h-10 rounded-xl bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 grid place-items-center font-semibold">{{
-                                    lesson.order }}</span>
-                                <h1 class="text-2xl font-semibold text-slate-800 dark:text-gray-100">{{ lesson.title }}</h1>
-                            </div>
-                            <div class="prose prose-slate dark:prose-invert max-w-none text-slate-600 dark:text-gray-300 whitespace-pre-line leading-relaxed">
-                {{ lesson.content|default:"Содержание урока пока не заполнено." }}
+                <span class="w-10 h-10 rounded-xl bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 grid place-items-center font-semibold">{{ lesson.order }}</span>
+                <h1 class="text-2xl font-semibold text-slate-800 dark:text-gray-100">{{ lesson.title }}</h1>
+                {% if my_conducted %}
+                    <span class="badge bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">Проведено</span>
+                {% elif my_date %}
+                    {# Дата и отметка о проведении — индивидуальны для каждого ученика #}
+                    <span class="badge bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-gray-300">Ваше занятие: {{ my_date|date:"d.m.Y H:i" }}</span>
+                {% endif %}
+            </div>
+            <div class="prose prose-slate dark:prose-invert max-w-none text-slate-600 dark:text-gray-300 whitespace-pre-line leading-relaxed">
+                {{ lesson.content|latex|default:"Содержание урока пока не заполнено." }}
             </div>
             {% if is_owner %}
-            <div class="flex items-center gap-3 mt-6 pt-6 border-t border-slate-100 dark:border-gray-700">
+            {# FIX: даты и отметки о проведении — в панели ученика (индивидуально). #}
+            <div class="flex items-center gap-3 mt-6 pt-6 border-t border-slate-100 dark:border-gray-700 flex-wrap">
                 <a href="{% url 'lesson_edit' lesson.pk %}" class="text-sm text-brand-600 dark:text-brand-400 hover:underline">Редактировать урок</a>
                 <a href="{% url 'lesson_delete' lesson.pk %}" class="text-sm text-red-500 hover:underline">Удалить</a>
             </div>
@@ -37,7 +44,7 @@
             <a href="{{ hw.get_absolute_url }}" class="card p-4 block hover:border-brand-200 dark:hover:border-brand-700 transition">
                 <p class="font-medium text-slate-700 dark:text-gray-200">{{ hw.title }}</p>
                 <p class="text-xs text-slate-400 dark:text-gray-500 mt-0.5">
-                    {% if hw.deadline %}Дедлайн: {{ hw.deadline|date:"d.m.Y H:i" }}{% else %}Без дедлайна{% endif %}
+                    {% if hw.my_issue.deadline %}Дедлайн: {{ hw.my_issue.deadline|date:"d.m.Y H:i" }}{% endif %}
                 </p>
             </a>
             {% endfor %}

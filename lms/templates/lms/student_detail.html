@@ -1,0 +1,151 @@
+{% extends 'lms/base.html' %}
+{% load lms_extras %}
+{% block title %}{{ student.full_name }} · Ученики{% endblock %}
+
+{% block content %}
+<nav class="text-sm text-slate-400 dark:text-gray-500 mb-4">
+    <a href="{% url 'students_list' %}" class="hover:text-brand-600">Ученики</a>
+    <span class="mx-2">/</span>
+    <span class="text-slate-600 dark:text-gray-300">{{ student.full_name }}</span>
+</nav>
+
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <div class="flex items-center gap-4">
+        {% if student.avatar %}
+            <img src="{{ student.avatar.url }}" class="w-16 h-16 rounded-full object-cover" alt="">
+        {% else %}
+            <span class="w-16 h-16 rounded-full bg-brand-100 dark:bg-brand-900/50 text-brand-700 dark:text-brand-300 grid place-items-center text-xl font-semibold">
+                {{ student.full_name|slice:':1'|upper }}
+            </span>
+        {% endif %}
+        <div>
+            <h1 class="text-2xl font-semibold text-slate-800 dark:text-gray-100">
+                {{ student.full_name }}
+                {% if not student.is_active %}
+                    <span class="badge bg-red-50 dark:bg-red-900/40 text-red-600 dark:text-red-300 align-middle ml-2">Неактивен</span>
+                {% endif %}
+            </h1>
+            <p class="text-sm text-slate-400 dark:text-gray-500 mt-0.5">{{ student.email }}{% if student.date_joined %} · зарегистрирован(а) {{ student.date_joined|date:"d.m.Y" }}{% endif %}</p>
+        </div>
+    </div>
+    <a href="{% url 'student_edit' student.pk %}"
+       class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl px-5 py-2.5 transition shrink-0">
+        Редактировать параметры
+    </a>
+</div>
+
+{% if student.bio %}
+<div class="card p-5 mb-6 text-sm text-slate-600 dark:text-gray-300 leading-relaxed">{{ student.bio|linebreaksbr }}</div>
+{% endif %}
+
+<!-- Мини-статистика -->
+<div class="grid grid-cols-3 gap-4 mb-8 max-w-md">
+    <div class="card p-4 text-center">
+        <p class="text-2xl font-semibold text-slate-800 dark:text-gray-100">{{ submissions_count }}</p>
+        <p class="text-xs text-slate-400 dark:text-gray-500 mt-1">сдано работ</p>
+    </div>
+    <div class="card p-4 text-center">
+        <p class="text-2xl font-semibold text-brand-600 dark:text-brand-400">{{ new_count }}</p>
+        <p class="text-xs text-slate-400 dark:text-gray-500 mt-1">на проверке</p>
+    </div>
+    <div class="card p-4 text-center">
+        <p class="text-2xl font-semibold text-slate-800 dark:text-gray-100">{% if avg_grade is not None %}{{ avg_grade }}{% else %}—{% endif %}</p>
+        <p class="text-xs text-slate-400 dark:text-gray-500 mt-1">ср. балл</p>
+    </div>
+</div>
+
+<div class="grid lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
+        <!-- Курсы ученика -->
+        <div class="card p-6">
+            <h2 class="font-semibold text-slate-800 dark:text-gray-100 mb-4">Курсы</h2>
+            {% if enrollments %}
+            <div class="space-y-3">
+                {% for e in enrollments %}
+                <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-100 dark:border-gray-700 p-4">
+                    <div class="min-w-0">
+                        <a href="{{ e.course.get_absolute_url }}" class="font-medium text-slate-700 dark:text-gray-200 hover:text-brand-600 truncate block">{{ e.course.title }}</a>
+                        <p class="text-xs text-slate-400 dark:text-gray-500 mt-0.5">привязан(а) {{ e.enrolled_at|date:"d.m.Y" }}</p>
+                    </div>
+                    {% if not student.is_superuser %}
+                    <form method="post" action="{% url 'student_unenroll_course' student.pk e.pk %}"
+                          onsubmit="return confirm('Отвязать ученика от курса «{{ e.course.title|escapejs }}»?');"
+                          class="shrink-0">
+                        {% csrf_token %}
+                        <button type="submit" class="text-sm text-red-500 hover:text-red-600">Отвязать</button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-400 dark:text-gray-500">Нет привязанных курсов.</p>
+            {% endif %}
+
+            {% if teacher_courses %}
+            <form method="post" action="{% url 'student_enroll_course' student.pk %}" class="flex flex-col sm:flex-row gap-3 mt-5 pt-5 border-t border-slate-100 dark:border-gray-700">
+                {% csrf_token %}
+                <select name="course_id" class="form-input flex-1" required>
+                    <option value="">Добавить на курс…</option>
+                    {% for c in teacher_courses %}
+                        <option value="{{ c.pk }}">{{ c.title }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit"
+                        class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl px-5 py-2.5 transition shrink-0">
+                    Добавить
+                </button>
+            </form>
+            {% endif %}
+        </div>
+
+        <!-- Работы -->
+        <div class="card p-6">
+            <h2 class="font-semibold text-slate-800 dark:text-gray-100 mb-4">Домашние задания</h2>
+            {% if submissions %}
+            <div class="divide-y divide-slate-50 dark:divide-gray-700 -my-2">
+                {% for s in submissions %}
+                <div class="py-3 flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <a href="{{ s.homework.get_absolute_url }}" class="font-medium text-sm text-slate-700 dark:text-gray-200 hover:text-brand-600 truncate block">{{ s.homework.title }}</a>
+                        <p class="text-xs text-slate-400 dark:text-gray-500 mt-0.5">{{ s.homework.course.title }} · {{ s.submitted_at|date:"d.m.Y H:i" }}</p>
+                    </div>
+                    <div class="flex items-center gap-3 shrink-0">
+                        <span class="badge hidden sm:inline-flex
+                            {% if s.status == 'NEW' %}bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300
+                            {% elif s.status == 'CHECKED' %}bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300
+                            {% else %}bg-amber-50 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300{% endif %}">
+                            {{ s.get_status_display }}
+                        </span>
+                        {% if s.grade is not None %}<span class="text-sm text-slate-500 dark:text-gray-400">{{ s.grade }}/100</span>{% endif %}
+                        <a href="{% url 'submission_check' s.pk %}" class="text-sm text-brand-600 dark:text-brand-400 hover:underline">Проверить</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-400 dark:text-gray-500">Ученик ещё ничего не сдавал(а).</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div>
+        <!-- Предстоящие занятия -->
+        <div class="card p-6">
+            <h2 class="font-semibold text-slate-800 dark:text-gray-100 mb-4">Предстоящие занятия</h2>
+            {% if upcoming %}
+            <div class="space-y-3">
+                {% for ld in upcoming %}
+                <a href="{{ ld.lesson.get_absolute_url }}" class="block rounded-xl border border-slate-100 dark:border-gray-700 p-4 hover:border-brand-200 dark:hover:border-brand-700 transition">
+                    <p class="text-sm font-medium text-slate-700 dark:text-gray-200">{{ ld.lesson.title }}</p>
+                    <p class="text-xs text-slate-400 dark:text-gray-500 mt-1">{{ ld.enrollment.course.title }} · {{ ld.date|date:"d.m.Y H:i" }}</p>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-400 dark:text-gray-500">Даты занятий не назначены.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -101,6 +101,19 @@ class Subject(models.TextChoices):
     OTHER = "OTHER", "Другое"
 
 
+class GradeLevel(models.TextChoices):
+    """Класс / уровень подготовки."""
+
+    G5 = "G5", "5 класс"
+    G6 = "G6", "6 класс"
+    G7 = "G7", "7 класс"
+    G8 = "G8", "8 класс"
+    G9 = "G9", "9 класс (ОГЭ)"
+    G10 = "G10", "10 класс"
+    G11 = "G11", "11 класс (ЕГЭ)"
+    ANY = "ANY", "Все классы"
+
+
 class Course(models.Model):
     """Курс подготовки к экзамену."""
 
@@ -112,6 +125,12 @@ class Course(models.Model):
         max_length=20,
         choices=Subject.choices,
         default=Subject.MATH,
+    )
+    grade_level = models.CharField(
+        "Класс / уровень",
+        max_length=10,
+        choices=GradeLevel.choices,
+        default=GradeLevel.ANY,
     )
     is_published = models.BooleanField(
         "Опубликован",
@@ -205,7 +224,7 @@ class Enrollment(models.Model):
 
 
 class Lesson(models.Model):
-    """Урок внутри курса."""
+    """Урок внутри курса (план занятия: материалы + ДЗ)."""
 
     course = models.ForeignKey(
         Course,
@@ -214,8 +233,10 @@ class Lesson(models.Model):
         verbose_name="Курс",
     )
     title = models.CharField("Название", max_length=200)
-    content = models.TextField("Содержание", blank=True)
+    content = models.TextField("Содержание / материалы", blank=True)
     order = models.PositiveIntegerField("Порядковый номер", default=1)
+    # FIX: занятия на курсе создаются без даты —
+    # дата и отметка о проведении назначаются каждому ученику отдельно (LessonDate).
     created_at = models.DateTimeField("Создан", auto_now_add=True)
 
     class Meta:
@@ -232,8 +253,51 @@ class Lesson(models.Model):
         return reverse("lesson_detail", args=[self.pk])
 
 
+class LessonDate(models.Model):
+    """Дата занятия и отметка о проведении для конкретного ученика.
+
+    Назначается преподавателем в панели ученика после привязки к курсу (Enrollment).
+    """
+
+    enrollment = models.ForeignKey(
+        Enrollment,
+        on_delete=models.CASCADE,
+        related_name="lesson_dates",
+        verbose_name="Запись на курс",
+    )
+    lesson = models.ForeignKey(
+        Lesson,
+        on_delete=models.CASCADE,
+        related_name="student_dates",
+        verbose_name="Урок",
+    )
+    date = models.DateTimeField("Дата занятия")
+    is_conducted = models.BooleanField(
+        "Занятие проведено",
+        default=False,
+        help_text="После отметки о проведении автоматически выдаются ДЗ к этому уроку (если включена автовыдача у ученика).",
+    )
+    conducted_at = models.DateTimeField("Отмечено проведённым", null=True, blank=True)
+
+    class Meta:
+        unique_together = ("enrollment", "lesson")
+        ordering = ("date",)
+        indexes = [models.Index(fields=("enrollment", "lesson"))]
+        verbose_name = "Дата занятия ученика"
+        verbose_name_plural = "Даты занятий учеников"
+
+    def __str__(self):
+        return f"{self.enrollment.student} — {self.lesson}: {self.date:%d.%m.%Y %H:%M}"
+
+
 class Homework(models.Model):
     """Домашнее задание к уроку."""
+
+    class AnswerType(models.TextChoices):
+        NONE = "NONE", "Без автопроверки (ручная проверка)"
+        EXACT = "EXACT", "Точное совпадение"
+        NUMERIC = "NUMERIC", "Числовой ответ (с допуском)"
+        MULTIPLE = "MULTIPLE", "Несколько вариантов (все верные)"
 
     course = models.ForeignKey(
         Course,
@@ -250,8 +314,42 @@ class Homework(models.Model):
         blank=True,
     )
     title = models.CharField("Название", max_length=200)
-    task = models.TextField("Задание")
-    deadline = models.DateTimeField("Дедлайн", null=True, blank=True)
+    task = models.TextField(
+        "Общее условие задания",
+        blank=True,
+        help_text="Необязательно, если ниже добавлены отдельные задачи. "
+                  "Поддерживается LaTeX в формате $...$ (инлайн) и $$...$$ (отдельная строка).",
+    )
+    task_image = models.ImageField(
+        "Изображение задания (формулы)",
+        upload_to="homeworks/",
+        blank=True,
+        null=True,
+        validators=[FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png", "webp"])],
+        help_text="Можно приложить фото/скриншот задания с формулами.",
+    )
+    answer_type = models.CharField(
+        "Тип ответа",
+        max_length=10,
+        choices=AnswerType.choices,
+        default=AnswerType.NONE,
+    )
+    expected_answer = models.TextField(
+        "Верный ответ (для автопроверки)",
+        blank=True,
+        help_text="Для «нескольких вариантов» — по одному варианту в строке.",
+    )
+    numeric_tolerance = models.FloatField(
+        "Допуск для числового ответа",
+        default=0.0,
+        validators=[MinValueValidator(0)],
+    )
+    require_photo = models.BooleanField(
+        "Требовать фото/файл решения",
+        default=False,
+        help_text="Ученик не сможет отправить ответ без прикреплённого файла.",
+    )
+    # FIX: автовыдача и дедлайны ДЗ теперь индивидуальны для каждого ученика (HomeworkIssue).
     created_at = models.DateTimeField("Создано", auto_now_add=True)
 
     class Meta:
@@ -270,6 +368,121 @@ class Homework(models.Model):
 
     def get_absolute_url(self):
         return reverse("homework_detail", args=[self.pk])
+
+    @property
+    def is_autograded(self):
+        return self.answer_type != self.AnswerType.NONE
+
+    def autograde(self, answer):
+        """Автоматическая проверка ответа.
+
+        Возвращает (is_correct, grade, comment).
+        """
+        from .autograding import grade_answer
+
+        return grade_answer(self, answer)
+
+    @property
+    def has_problems(self):
+        """Задание состоит из нескольких задач."""
+        return self.problems.exists()
+
+
+class HomeworkIssue(models.Model):
+    """Выдача домашнего задания конкретному ученику.
+
+    Живёт в панели ученика: отдельный чекбокс автовыдачи и персональный дедлайн
+    для каждого ДЗ курса.
+    """
+
+    enrollment = models.ForeignKey(
+        Enrollment,
+        on_delete=models.CASCADE,
+        related_name="homework_issues",
+        verbose_name="Запись на курс",
+    )
+    homework = models.ForeignKey(
+        Homework,
+        on_delete=models.CASCADE,
+        related_name="issues",
+        verbose_name="Домашнее задание",
+    )
+    auto_issue = models.BooleanField(
+        "Автовыдача",
+        default=False,
+        help_text="Задание станет доступно ученику после отметки о проведении занятия.",
+    )
+    issued = models.BooleanField("Выдано", default=False)
+    issued_at = models.DateTimeField("Выдано", null=True, blank=True)
+    deadline = models.DateTimeField("Дедлайн", null=True, blank=True)
+
+    class Meta:
+        unique_together = ("enrollment", "homework")
+        indexes = [models.Index(fields=("enrollment", "homework"))]
+        verbose_name = "Выдача ДЗ ученику"
+        verbose_name_plural = "Выдачи ДЗ ученикам"
+
+    def __str__(self):
+        return f"{self.enrollment.student} — {self.homework}"
+
+    @property
+    def is_available(self):
+        """Доступно ли задание ученику сейчас."""
+        return not self.auto_issue or self.issued
+
+
+class HomeworkProblem(models.Model):
+    """Отдельная задача (пример) в составе домашнего задания."""
+
+    homework = models.ForeignKey(
+        Homework,
+        on_delete=models.CASCADE,
+        related_name="problems",
+        verbose_name="Домашнее задание",
+    )
+    order = models.PositiveIntegerField("Номер задачи", default=1)
+    text = models.TextField(
+        "Условие задачи",
+        blank=True,
+        help_text="Поддерживается LaTeX: $...$ и $$...$$.",
+    )
+    image = models.ImageField(
+        "Изображение задачи",
+        upload_to="homeworks/problems/",
+        blank=True,
+        null=True,
+        validators=[FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png", "webp"])],
+    )
+    answer_type = models.CharField(
+        "Тип ответа",
+        max_length=10,
+        choices=Homework.AnswerType.choices,
+        default=Homework.AnswerType.NONE,
+    )
+    expected_answer = models.TextField(
+        "Верный ответ (для автопроверки)",
+        blank=True,
+        help_text="Для «нескольких вариантов» — по одному варианту в строке.",
+    )
+    numeric_tolerance = models.FloatField(
+        "Допуск для числового ответа",
+        default=0.0,
+        validators=[MinValueValidator(0)],
+    )
+
+    class Meta:
+        ordering = ("order", "id")
+        unique_together = ("homework", "order")
+        indexes = [models.Index(fields=("homework", "order"))]
+        verbose_name = "Задача ДЗ"
+        verbose_name_plural = "Задачи ДЗ"
+
+    def __str__(self):
+        return f"{self.homework.title} — задача {self.order}"
+
+    @property
+    def is_autograded(self):
+        return self.answer_type != Homework.AnswerType.NONE and bool((self.expected_answer or "").strip())
 
 
 class Submission(models.Model):
@@ -333,6 +546,39 @@ class Submission(models.Model):
 
     def __str__(self):
         return f"{self.student} - {self.homework}"
+
+    @property
+    def photo_required(self):
+        return self.homework.require_photo
+
+
+class SubmissionAnswer(models.Model):
+    """Ответ ученика на конкретную задачу домашнего задания."""
+
+    submission = models.ForeignKey(
+        Submission,
+        on_delete=models.CASCADE,
+        related_name="answers",
+        verbose_name="Ответ на ДЗ",
+    )
+    problem = models.ForeignKey(
+        HomeworkProblem,
+        on_delete=models.CASCADE,
+        related_name="submission_answers",
+        verbose_name="Задача",
+    )
+    answer = models.TextField("Ответ", blank=True)
+
+    class Meta:
+        unique_together = ("submission", "problem")
+        ordering = ("problem__order",)
+        verbose_name = "Ответ на задачу"
+        verbose_name_plural = "Ответы на задачи"
+
+    def __str__(self):
+        return f"{self.submission.student} — задача {self.problem.order}"
+
+
 class Theme(models.Model):
     """Кастомная тема оформления (настраивается суперпользователем)."""
 

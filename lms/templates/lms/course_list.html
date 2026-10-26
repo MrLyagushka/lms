@@ -16,13 +16,19 @@
 </div>
 
 <!-- Filters -->
-<form method="get" class="card p-4 mb-6 flex-col sm:flex-row gap-3">
+<form method="get" class="card p-4 mb-6 flex flex-col sm:flex-row gap-3">
     <input type="text" name="q" value="{{ query }}" placeholder="Поиск по названию..."
            class="form-input flex-1">
     <select name="subject" class="form-input sm:w-56">
         <option value="">Все предметы</option>
         {% for value, label in subjects %}
             <option value="{{ value }}" {% if current_subject == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <select name="grade" class="form-input sm:w-48">
+        <option value="">Все классы</option>
+        {% for value, label in grades %}
+            <option value="{{ value }}" {% if current_grade == value %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
     </select>
     <button type="submit" class="bg-slate-800 hover:bg-slate-900 dark:bg-gray-700 dark:hover:bg-gray-600 text-white text-sm font-medium rounded-xl px-5 py-2.5 transition">
@@ -33,7 +39,7 @@
 {% if courses %}
 <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
     {% for course in courses %}
-    <div class="card overflow-hidden flex-col">
+    <div class="card overflow-hidden flex flex-col">
         {% if course.cover %}
             <img src="{{ course.cover.url }}" class="h-36 w-full object-cover" alt="">
         {% else %}
@@ -41,14 +47,13 @@
                 <span class="badge bg-white/20 text-white backdrop-blur">{{ course.get_subject_display }}</span>
             </div>
         {% endif %}
-        <div class="p-5 flex-col flex-1">
+        <div class="p-5 flex flex-col flex-1">
             {% if course.cover %}
                 <span class="badge bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 self-start mb-2">{{ course.get_subject_display }}</span>
             {% endif %}
             <h3 class="font-medium text-slate-800 dark:text-gray-100">{{ course.title }}</h3>
-                        <p class="text-sm text-slate-400 dark:text-gray-500 mt-1 line-clamp-2 flex-1">{{ course.description|default:"Без
-                            описания"|truncatechars:100 }}</p>
-                        <div class="flex items-center gap-3 text-xs text-slate-400 dark:text-gray-500 mt-3">
+            <p class="text-sm text-slate-400 dark:text-gray-500 mt-1 line-clamp-2 flex-1">{{ course.description|default:"Без описания"|truncatechars:100 }}</p>
+            <div class="flex items-center gap-3 text-xs text-slate-400 dark:text-gray-500 mt-3">
                 <span>{{ course.num_lessons }} уроков</span>
                 <span>·</span>
                 <span>{{ course.num_students }} учеников</span>

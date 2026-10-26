@@ -1,0 +1,23 @@
+{% extends 'lms/base.html' %}
+{% block title %}Настройки · ЕГЭ/ОГЭ Подготовка{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-semibold text-gray-800 dark:text-gray-100">Настройки</h1>
+    <p class="text-gray-400 dark:text-gray-500 mt-1">Разделы настроек сайта (доступно суперпользователю)</p>
+    <div class="flex flex-wrap gap-2 mt-4">
+        <a href="{% url 'settings' %}"
+           class="px-4 py-2 rounded-xl text-sm font-medium border transition
+                  {% if section == 'themes' %}bg-brand-600 border-brand-600 text-white{% else %}border-slate-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-brand-300 hover:text-brand-600{% endif %}">
+            Темы оформления
+        </a>
+        <a href="{% url 'settings_json' %}"
+           class="px-4 py-2 rounded-xl text-sm font-medium border transition
+                  {% if section == 'json' %}bg-brand-600 border-brand-600 text-white{% else %}border-slate-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-brand-300 hover:text-brand-600{% endif %}">
+            JSON-шаблоны импорта
+        </a>
+    </div>
+</div>
+
+{% block settings_content %}{% endblock %}
+{% endblock %}

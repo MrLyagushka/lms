@@ -146,3 +146,18 @@
 .dark .text-red-700 { color: #fca5a5; }
 .dark .bg-brand-100 { background-color: rgba(49, 46, 129, .5); }
 .dark .text-brand-600 { color: #a5b4fc; }
+
+/* ========================================================= */
+/* KaTeX: отображение формул                                 */
+/* ========================================================= */
+.katex-display {
+    display: block;
+    margin: 0.75rem 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.25rem 0;
+}
+
+.katex {
+    font-size: 1.05em;
+}

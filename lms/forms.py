@@ -1,7 +1,18 @@
 from django import forms
 from django.contrib.auth import get_user_model
+from django.forms import inlineformset_factory
 
-from .models import Course, CustomUser, Homework, Lesson, Submission, Theme
+from .models import (
+    Course,
+    CustomUser,
+    Homework,
+    HomeworkIssue,
+    HomeworkProblem,
+    Lesson,
+    LessonDate,
+    Submission,
+    Theme,
+)
 
 User = get_user_model()
 
@@ -61,12 +72,13 @@ class CourseForm(forms.ModelForm):
 
     class Meta:
         model = Course
-        fields = ("title", "subject", "description", "cover")
+        fields = ("title", "subject", "grade_level", "description", "cover")
         widgets = {
             "title": forms.TextInput(
-                attrs={"class": "form-input", "placeholder": "Например: Подготовка к ЕГЭ по математике"}
+                attrs={"class": "form-input", "placeholder": "Например: 8 класс — Математика"}
             ),
             "subject": forms.Select(attrs={"class": "form-input"}),
+            "grade_level": forms.Select(attrs={"class": "form-input"}),
             "description": forms.Textarea(
                 attrs={"class": "form-input", "rows": 4, "placeholder": "Кратко опишите курс"}
             ),
@@ -74,7 +86,11 @@ class CourseForm(forms.ModelForm):
 
 
 class LessonForm(forms.ModelForm):
-    """Форма создания / редактирования урока."""
+    """Форма создания / редактирования урока (план занятия).
+
+    FIX: занятия на курсе создаются без даты — дата назначается
+    каждому ученику отдельно после привязки к курсу (LessonDateForm).
+    """
 
     class Meta:
         model = Lesson
@@ -82,33 +98,195 @@ class LessonForm(forms.ModelForm):
         widgets = {
             "title": forms.TextInput(attrs={"class": "form-input"}),
             "order": forms.NumberInput(attrs={"class": "form-input", "min": 1}),
-            "content": forms.Textarea(attrs={"class": "form-input", "rows": 8}),
+            "content": forms.Textarea(
+                attrs={
+                    "class": "form-input",
+                    "rows": 8,
+                    "placeholder": "Материалы занятия. Поддерживается LaTeX: $x^2$ и $$\\frac{a}{b}$$",
+                }
+            ),
         }
 
 
-class HomeworkForm(forms.ModelForm):
-    """Форма создания / редактирования домашнего задания."""
+class LessonDateForm(forms.ModelForm):
+    """Дата занятия и отметка о проведении для конкретного ученика."""
 
     class Meta:
-        model = Homework
-        fields = ("title", "lesson", "task", "deadline")
+        model = LessonDate
+        fields = ("date", "is_conducted")
         widgets = {
-            "title": forms.TextInput(attrs={"class": "form-input"}),
-            "lesson": forms.Select(attrs={"class": "form-input"}),
-            "task": forms.Textarea(attrs={"class": "form-input", "rows": 6}),
-            "deadline": forms.DateTimeInput(
+            "date": forms.DateTimeInput(
                 attrs={"class": "form-input", "type": "datetime-local"},
                 format="%Y-%m-%dT%H:%M",
             ),
+            "is_conducted": forms.CheckboxInput(
+                attrs={"class": "rounded border-slate-300 text-brand-500 focus:ring-brand-400"},
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["date"].input_formats = ["%Y-%m-%dT%H:%M"]
+        self.fields["is_conducted"].required = False
+        self.fields["is_conducted"].label = "Проведено"
+
+
+class EnrollStudentForm(forms.Form):
+    """Преподаватель привязывает ученика к курсу по email."""
+
+    email = forms.EmailField(
+        label="Email ученика",
+        widget=forms.EmailInput(attrs={"class": "form-input", "placeholder": "student@mail.ru"}),
+    )
+
+    def __init__(self, *args, course=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.course = course
+
+    def clean_email(self):
+        from .models import Enrollment
+
+        email = self.cleaned_data["email"].strip().lower()
+        student = User.objects.filter(email__iexact=email, role=User.Role.STUDENT).first()
+        if not student:
+            raise forms.ValidationError("Ученик с таким email не найден.")
+        if self.course and Enrollment.objects.filter(student=student, course=self.course).exists():
+            raise forms.ValidationError("Этот ученик уже привязан к курсу.")
+        self.student = student
+        return email
+
+
+class HomeworkForm(forms.ModelForm):
+    """Форма создания / редактирования домашнего задания.
+
+    FIX: автовыдача и дедлайны перенесены в панель ученика (HomeworkIssueForm),
+    здесь остаются только настройки самого задания.
+    """
+
+    class Meta:
+        model = Homework
+        fields = (
+            "title",
+            "lesson",
+            "task",
+            "task_image",
+            "answer_type",
+            "expected_answer",
+            "numeric_tolerance",
+            "require_photo",
+        )
+        widgets = {
+            "title": forms.TextInput(attrs={"class": "form-input"}),
+            "lesson": forms.Select(attrs={"class": "form-input"}),
+            "task": forms.Textarea(
+                attrs={
+                    "class": "form-input",
+                    "rows": 6,
+                    "placeholder": "Текст задания. Поддерживается LaTeX: $E=mc^2$ и $$\\int_0^1 x\\,dx$$",
+                }
+            ),
+            "task_image": forms.ClearableFileInput(attrs={"class": "form-file"}),
+            "answer_type": forms.Select(attrs={"class": "form-input"}),
+            "expected_answer": forms.Textarea(
+                attrs={
+                    "class": "form-input",
+                    "rows": 3,
+                    "placeholder": "Верный ответ. Для «нескольких вариантов» — по одному в строке.",
+                }
+            ),
+            "numeric_tolerance": forms.NumberInput(
+                attrs={"class": "form-input", "min": 0, "step": "0.01", "placeholder": "0.01 = 1%"}
+            ),
+            "require_photo": forms.CheckboxInput(attrs={"class": "h-4 w-4 rounded border-slate-300"}),
         }
 
     def __init__(self, *args, course=None, **kwargs):
         super().__init__(*args, **kwargs)
         if course is not None:
             self.fields["lesson"].queryset = course.lessons.all()
+        # FIX: если ДЗ состоит из отдельных задач, общее условие необязательно.
+        self.fields["task"].required = False
+        self.fields["numeric_tolerance"].required = False
+
+    def clean(self):
+        cleaned = super().clean()
+        answer_type = cleaned.get("answer_type")
+        expected = (cleaned.get("expected_answer") or "").strip()
+        if answer_type in (
+            Homework.AnswerType.EXACT,
+            Homework.AnswerType.NUMERIC,
+            Homework.AnswerType.MULTIPLE,
+        ) and not expected:
+            self.add_error("expected_answer", "Укажите верный ответ для автопроверки.")
+        return cleaned
+
+
+class HomeworkIssueForm(forms.ModelForm):
+    """Настройки выдачи ДЗ конкретному ученику (панель ученика)."""
+
+    class Meta:
+        model = HomeworkIssue
+        fields = ("auto_issue", "issued", "deadline")
+        widgets = {
+            "auto_issue": forms.CheckboxInput(attrs={"class": "h-4 w-4 rounded border-slate-300"}),
+            "issued": forms.CheckboxInput(attrs={"class": "h-4 w-4 rounded border-slate-300"}),
+            "deadline": forms.DateTimeInput(
+                attrs={"class": "form-input", "type": "datetime-local"},
+                format="%Y-%m-%dT%H:%M",
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         # Обязательно, чтобы datetime-local корректно отображал значение
         self.fields["deadline"].input_formats = ["%Y-%m-%dT%H:%M"]
         self.fields["deadline"].required = False
+        self.fields["issued"].required = False
+
+
+class HomeworkProblemForm(forms.ModelForm):
+    """Форма одной задачи в составе домашнего задания."""
+
+    class Meta:
+        model = HomeworkProblem
+        fields = ("order", "text", "image", "answer_type", "expected_answer", "numeric_tolerance")
+        widgets = {
+            "order": forms.NumberInput(attrs={"class": "form-input", "min": 1}),
+            "text": forms.Textarea(
+                attrs={
+                    "class": "form-input",
+                    "rows": 3,
+                    "placeholder": "Условие задачи. Поддерживается LaTeX: $2x+3=7$",
+                }
+            ),
+            "image": forms.ClearableFileInput(attrs={"class": "form-file"}),
+            "answer_type": forms.Select(attrs={"class": "form-input"}),
+            "expected_answer": forms.Textarea(
+                attrs={
+                    "class": "form-input",
+                    "rows": 2,
+                    "placeholder": "Верный ответ (для автопроверки)",
+                }
+            ),
+            "numeric_tolerance": forms.NumberInput(
+                attrs={"class": "form-input", "min": 0, "step": "0.01", "placeholder": "0.01 = 1%"}
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["text"].required = False
+        self.fields["numeric_tolerance"].required = False
+
+
+HomeworkProblemFormSet = inlineformset_factory(
+    Homework,
+    HomeworkProblem,
+    form=HomeworkProblemForm,
+    fields=("order", "text", "image", "answer_type", "expected_answer", "numeric_tolerance"),
+    extra=0,
+    can_delete=True,
+)
 
 
 class SubmissionForm(forms.ModelForm):
@@ -128,11 +306,45 @@ class SubmissionForm(forms.ModelForm):
             "file": "Прикрепить файл (необязательно)",
         }
 
+    def __init__(self, *args, homework=None, submission=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.homework = homework
+        self.problem_fields = []
+        if homework is not None and homework.require_photo:
+            self.fields["file"].required = True
+            self.fields["file"].label = "Фото/файл решения (обязательно)"
+
+        # FIX: ДЗ из нескольких задач — отдельное поле ответа для каждой задачи.
+        if homework is not None:
+            problems = list(homework.problems.all())
+            if problems:
+                del self.fields["answer"]
+                existing = {}
+                if submission is not None:
+                    existing = {a.problem_id: a.answer for a in submission.answers.all()}
+                for problem in problems:
+                    name = f"answer_{problem.pk}"
+                    self.problem_fields.append(name)
+                    self.fields[name] = forms.CharField(
+                        label=f"Задача {problem.order}. {problem.text[:60]}",
+                        required=False,
+                        widget=forms.Textarea(attrs={"class": "form-input", "rows": 2}),
+                        initial=existing.get(problem.pk, ""),
+                    )
+
     def clean(self):
         cleaned = super().clean()
-        # FIX: не принимаем пустую отправку без текста и файла.
-        if not cleaned.get("answer", "").strip() and not cleaned.get("file"):
-            raise forms.ValidationError("Добавьте текст ответа или прикрепите файл.")
+        if self.problem_fields:
+            # FIX: для многозадачного ДЗ — требуется хотя бы один ответ или файл.
+            if not any((cleaned.get(name) or "").strip() for name in self.problem_fields) and not cleaned.get("file"):
+                raise forms.ValidationError("Ответьте хотя бы на одну задачу или прикрепите файл решения.")
+        else:
+            # FIX: не принимаем пустую отправку без текста и файла.
+            if not cleaned.get("answer", "").strip() and not cleaned.get("file"):
+                raise forms.ValidationError("Добавьте текст ответа или прикрепите файл.")
+        # FIX: если задание требует фото решения — файл обязателен.
+        if self.homework is not None and self.homework.require_photo and not cleaned.get("file"):
+            self.add_error("file", "Для этого задания обязательно приложите фото или файл решения.")
         return cleaned
 
 
@@ -175,6 +387,46 @@ class ProfileForm(forms.ModelForm):
         return email
 
 
+class StudentManageForm(forms.ModelForm):
+    """Преподаватель редактирует параметры ученика (панель «Ученики»)."""
+
+    new_password = forms.CharField(
+        label="Новый пароль (необязательно)",
+        required=False,
+        widget=forms.PasswordInput(
+            attrs={"class": "form-input", "placeholder": "Оставьте пустым, чтобы не менять", "autocomplete": "new-password"}
+        ),
+        help_text="Если заполнить — пароль ученика будет сброшен на новый.",
+    )
+
+    class Meta:
+        model = CustomUser
+        fields = ("first_name", "last_name", "email", "bio", "avatar", "is_active")
+        widgets = {
+            "first_name": forms.TextInput(attrs={"class": "form-input"}),
+            "last_name": forms.TextInput(attrs={"class": "form-input"}),
+            "email": forms.EmailInput(attrs={"class": "form-input"}),
+            "bio": forms.Textarea(attrs={"class": "form-input", "rows": 3}),
+            "avatar": forms.ClearableFileInput(attrs={"class": "form-file"}),
+            "is_active": forms.CheckboxInput(attrs={"class": "h-4 w-4 rounded border-slate-300"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["first_name"].required = False
+        self.fields["last_name"].required = False
+        self.fields["is_active"].label = "Аккаунт активен (ученик может входить в систему)"
+
+    def clean_email(self):
+        email = self.cleaned_data.get("email", "").strip().lower()
+        qs = CustomUser.objects.filter(email__iexact=email)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError("Этот email уже занят другим пользователем.")
+        return email
+
+
 FONT_CHOICES = [
     ("Inter, sans-serif", "Inter"),
     ("Roboto, sans-serif", "Roboto"),
@@ -188,11 +440,12 @@ FONT_CHOICES = [
 class ThemeForm(forms.ModelForm):
     """Форма создания / редактирования кастомной темы."""
 
-    font_family = forms.ChoiceField(
-        label="Шрифт",
-        choices=FONT_CHOICES,
-        widget=forms.Select(attrs={"class": "form-input"}),
-    )
+    # FIX: раньше font_family был ChoiceField с фиксированным списком —
+    # тему со шрифтом вне списка (например, заданным через админку) было
+    # невозможно сохранить: валидация выдавала «Выбран неверный вариант»,
+    # а ошибка нигде не показывалась. Теперь поле генерируется из модели
+    # (CharField + font_family_validator), а FONT_CHOICES используются
+    # как подсказки (datalist) в шаблоне.
 
     class Meta:
         model = Theme
@@ -216,6 +469,9 @@ class ThemeForm(forms.ModelForm):
             "text_color": forms.TextInput(attrs={"class": "form-color", "type": "color"}),
             "card_background": forms.TextInput(attrs={"class": "form-color", "type": "color"}),
             "navbar_background": forms.TextInput(attrs={"class": "form-color", "type": "color"}),
+            "font_family": forms.TextInput(
+                attrs={"class": "form-input", "list": "font-options", "placeholder": "Inter, sans-serif"}
+            ),
             "border_radius": forms.TextInput(attrs={"class": "form-input", "placeholder": "0.5rem"}),
             "is_active": forms.CheckboxInput(attrs={"class": "h-4 w-4 rounded border-slate-300"}),
         }

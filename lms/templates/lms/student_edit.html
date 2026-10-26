@@ -1,0 +1,84 @@
+{% extends 'lms/base.html' %}
+{% block title %}{{ title }} · ЕГЭ/ОГЭ Подготовка{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <nav class="text-sm text-slate-400 dark:text-gray-500 mb-4">
+        <a href="{% url 'students_list' %}" class="hover:text-brand-600">Ученики</a>
+        <span class="mx-2">/</span>
+        <a href="{% url 'student_detail' student.pk %}" class="hover:text-brand-600">{{ student.full_name }}</a>
+        <span class="mx-2">/</span>
+        <span class="text-slate-600 dark:text-gray-300">Редактирование</span>
+    </nav>
+
+    <h1 class="text-2xl font-semibold text-slate-800 dark:text-gray-100 mb-6">{{ title }}</h1>
+
+    <form method="post" enctype="multipart/form-data" class="card p-8 space-y-5">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="rounded-xl bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 p-3 text-sm text-red-600 dark:text-red-300">
+            {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="grid sm:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">{{ form.first_name.label }}</label>
+                {{ form.first_name }}
+                {% for error in form.first_name.errors %}<p class="text-xs text-red-500 mt-1">{{ error }}</p>{% endfor %}
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">{{ form.last_name.label }}</label>
+                {{ form.last_name }}
+                {% for error in form.last_name.errors %}<p class="text-xs text-red-500 mt-1">{{ error }}</p>{% endfor %}
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">{{ form.email.label }}</label>
+            {{ form.email }}
+            {% for error in form.email.errors %}<p class="text-xs text-red-500 mt-1">{{ error }}</p>{% endfor %}
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">{{ form.bio.label }}</label>
+            {{ form.bio }}
+            {% for error in form.bio.errors %}<p class="text-xs text-red-500 mt-1">{{ error }}</p>{% endfor %}
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">{{ form.avatar.label }}</label>
+            <div class="flex items-center gap-3">
+                {% if student.avatar %}
+                    <img src="{{ student.avatar.url }}" class="w-10 h-10 rounded-full object-cover" alt="">
+                {% endif %}
+                <div class="flex-1">{{ form.avatar }}</div>
+            </div>
+            {% if form.avatar.help_text %}<p class="text-xs text-slate-400 dark:text-gray-500 mt-1">{{ form.avatar.help_text }}</p>{% endif %}
+            {% for error in form.avatar.errors %}<p class="text-xs text-red-500 mt-1">{{ error }}</p>{% endfor %}
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">{{ form.new_password.label }}</label>
+            {{ form.new_password }}
+            {% if form.new_password.help_text %}<p class="text-xs text-slate-400 dark:text-gray-500 mt-1">{{ form.new_password.help_text }}</p>{% endif %}
+            {% for error in form.new_password.errors %}<p class="text-xs text-red-500 mt-1">{{ error }}</p>{% endfor %}
+        </div>
+
+        <div class="flex items-center gap-3">
+            {{ form.is_active }}
+            <label for="{{ form.is_active.id_for_label }}" class="text-sm text-slate-600 dark:text-gray-300">{{ form.is_active.label }}</label>
+        </div>
+        {% for error in form.is_active.errors %}<p class="text-xs text-red-500 mt-1">{{ error }}</p>{% endfor %}
+
+        <div class="flex items-center gap-3 pt-2">
+            <button type="submit"
+                    class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl px-5 py-2.5 transition">
+                Сохранить
+            </button>
+            <a href="{% url 'student_detail' student.pk %}" class="text-sm text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300">Отмена</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
