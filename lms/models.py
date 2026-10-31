@@ -84,6 +84,41 @@ class CustomUser(AbstractUser):
         return self.role == self.Role.STUDENT
 
 
+class StudentTeacherLink(models.Model):
+    """Привязка ученика к учителю (основная связь в текущей версии).
+
+    Заменяет временный механизм «ученик -> курс»: ДЗ выдаются учителем
+    напрямую привязанным ученикам. Курсы будут добавлены в обновлениях,
+    тогда эта связь станет первичной, а Enrollment — факультативным
+    групповым форматом.
+    """
+
+    student = models.OneToOneField(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name="teacher_link",
+        verbose_name="Ученик",
+        limit_choices_to={"role": CustomUser.Role.STUDENT},
+    )
+    teacher = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name="linked_students",
+        verbose_name="Учитель",
+        limit_choices_to={"role": CustomUser.Role.TEACHER},
+    )
+    created_at = models.DateTimeField("Дата привязки", auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        indexes = [models.Index(fields=("teacher", "student"))]
+        verbose_name = "Привязка ученика к учителю"
+        verbose_name_plural = "Привязки учеников к учителям"
+
+    def __str__(self):
+        return f"{self.student.full_name} → {self.teacher.full_name}"
+
+
 class Subject(models.TextChoices):
     """Предметы ЕГЭ/ОГЭ."""
 
@@ -304,6 +339,9 @@ class Homework(models.Model):
         on_delete=models.CASCADE,
         related_name="homeworks",
         verbose_name="Курс",
+        null=True,
+        blank=True,
+        help_text="Курсы будут добавлены в обновлениях. Сейчас ДЗ можно создавать без курса.",
     )
     lesson = models.ForeignKey(
         Lesson,
@@ -366,6 +404,14 @@ class Homework(models.Model):
         if self.lesson_id and self.course_id and self.lesson.course_id != self.course_id:
             raise ValidationError({"lesson": "Урок должен принадлежать выбранному курсу."})
 
+    @property
+    def teacher(self):
+        """Владелец задания: по курсу, либо по строкам выдачи (при курсе=None)."""
+        if self.course_id:
+            return self.course.teacher
+        issue = self.issues.select_related("teacher").first()
+        return issue.teacher if issue else None
+
     def get_absolute_url(self):
         return reverse("homework_detail", args=[self.pk])
 
@@ -391,15 +437,36 @@ class Homework(models.Model):
 class HomeworkIssue(models.Model):
     """Выдача домашнего задания конкретному ученику.
 
-    Живёт в панели ученика: отдельный чекбокс автовыдачи и персональный дедлайн
-    для каждого ДЗ курса.
+    В текущей версии ДЗ выдаются напрямую по привязке «ученик ↔ учитель»
+    (StudentTeacherLink). Поле enrollment оставлено для курсового формата,
+    который будет возвращён в обновлениях (Feature Flag COURSES).
     """
 
+    teacher = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name="issued_homeworks",
+        verbose_name="Учитель",
+        null=True,
+        blank=True,
+        limit_choices_to={"role": CustomUser.Role.TEACHER},
+    )
+    student = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name="homework_issues",
+        verbose_name="Ученик",
+        null=True,
+        blank=True,
+        limit_choices_to={"role": CustomUser.Role.STUDENT},
+    )
     enrollment = models.ForeignKey(
         Enrollment,
         on_delete=models.CASCADE,
         related_name="homework_issues",
         verbose_name="Запись на курс",
+        null=True,
+        blank=True,
     )
     homework = models.ForeignKey(
         Homework,
@@ -410,20 +477,35 @@ class HomeworkIssue(models.Model):
     auto_issue = models.BooleanField(
         "Автовыдача",
         default=False,
-        help_text="Задание станет доступно ученику после отметки о проведении занятия.",
+        help_text="Задание станет доступно ученику после проведения занятия (работает с курсами, добавим в обновлениях).",
     )
     issued = models.BooleanField("Выдано", default=False)
     issued_at = models.DateTimeField("Выдано", null=True, blank=True)
     deadline = models.DateTimeField("Дедлайн", null=True, blank=True)
 
     class Meta:
-        unique_together = ("enrollment", "homework")
-        indexes = [models.Index(fields=("enrollment", "homework"))]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("homework", "student"),
+                condition=models.Q(student__isnull=False),
+                name="unique_issue_per_student",
+            ),
+            models.UniqueConstraint(
+                fields=("enrollment", "homework"),
+                condition=models.Q(enrollment__isnull=False),
+                name="unique_issue_per_enrollment",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=("student", "homework")),
+            models.Index(fields=("teacher", "homework")),
+        ]
         verbose_name = "Выдача ДЗ ученику"
         verbose_name_plural = "Выдачи ДЗ ученикам"
 
     def __str__(self):
-        return f"{self.enrollment.student} — {self.homework}"
+        who = self.student or (self.enrollment.student if self.enrollment_id else None)
+        return f"{who} — {self.homework}"
 
     @property
     def is_available(self):

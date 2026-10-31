@@ -15,6 +15,7 @@ from django.views.decorators.http import require_GET
 
 from .autograding import grade_multi
 from .decorators import student_required, teacher_required
+from .features import courses_enabled
 from .forms import (
     CourseForm,
     EnrollStudentForm,
@@ -22,9 +23,11 @@ from .forms import (
     GradeForm,
     HomeworkForm,
     HomeworkIssueForm,
+    HomeworkIssueStudentsForm,
     HomeworkProblemFormSet,
     LessonDateForm,
     LessonForm,
+    LinkStudentForm,
     ProfileForm,
     StudentManageForm,
     SubmissionForm,
@@ -39,12 +42,62 @@ from .models import (
     HomeworkProblem,
     Lesson,
     LessonDate,
+    StudentTeacherLink,
     Submission,
     SubmissionAnswer,
     Theme,
 )
 
 User = get_user_model()
+
+
+def _courses_hidden_response(request):
+    """Курсы временно скрыты (добавим в обновлениях). Функционал не удалён.
+
+    NOTE: включается обратно переменной окружения FEATURE_COURSES=True
+    (см. lms/features.py).
+    """
+    if not courses_enabled():
+        messages.info(request, "Курсы мы добавим в ближайших обновлениях.")
+        return redirect("dashboard")
+    return None
+
+
+def _homeworks_of_teacher(teacher):
+    """Все ДЗ учителя: прямые выдачи + курсовые (курсы скрыты до обновлений)."""
+    if teacher.is_superuser:
+        return Homework.objects.all()
+    return Homework.objects.filter(
+        Q(issues__teacher=teacher) | Q(course__teacher=teacher)
+    ).distinct()
+
+
+def _issue_homework_to_students(homework, students, deadline=None, teacher=None):
+    """Создаёт/обновляет строки выдачи ДЗ ученикам (по привязке к учителю)."""
+    now = timezone.now()
+    existing = {
+        i.student_id: i
+        for i in HomeworkIssue.objects.filter(homework=homework, student_id__in=[s.pk for s in students])
+    }
+    to_update = []
+    for student in students:
+        issue = existing.get(student.pk)
+        if issue is None:
+            issue = HomeworkIssue(
+                homework=homework,
+                student=student,
+                teacher=(homework.course.teacher if homework.course_id else None) or teacher,
+            )
+        if not issue.issued:
+            issue.issued_at = now
+        issue.issued = True
+        if deadline is not None:
+            issue.deadline = deadline
+        to_update.append(issue)
+    HomeworkIssue.objects.bulk_create(to_update, update_conflicts=True,
+                                      unique_fields=["homework", "student"],
+                                      update_fields=["issued", "issued_at", "deadline"])
+    return len(to_update)
 
 
 def _sync_issues_for_enrollment(enrollment):
@@ -109,12 +162,14 @@ def secure_media(request, name):
     if not request.user.is_authenticated or not name or ".." in name or "\\" in name:
         raise Http404
 
-    submission = Submission.objects.select_related("student", "homework__course").filter(file=name).first()
+    submission = Submission.objects.select_related(
+        "student", "homework__course", "homework__issues__teacher"
+    ).filter(file=name).first()
     if submission:
         allowed = (
             request.user.is_superuser
             or request.user == submission.student
-            or request.user == submission.homework.course.teacher
+            or submission.homework.teacher == request.user
         )
     else:
         avatar = User.objects.filter(avatar=name).first()
@@ -174,23 +229,22 @@ def register(request):
 def dashboard(request):
     """Главная страница в зависимости от роли."""
     if request.user.is_teacher:
-        courses = (
-            Course.objects.filter(teacher=request.user)
-            .annotate(num_students=Count("enrollments", distinct=True), num_lessons=Count("lessons", distinct=True))
-        )
         submissions = (
-            Submission.objects.filter(homework__course__teacher=request.user)
+            Submission.objects.filter(
+                Q(homework__course__teacher=request.user)
+                | Q(homework__issues__teacher=request.user)
+            )
             .select_related("student", "homework")
+            .distinct()
         )
         context = {
-            "courses": courses,
-            "courses_count": courses.count(),
-            "students_count": Enrollment.objects.filter(
-                course__teacher=request.user
-            ).values("student").distinct().count(),
-            "homework_count": Homework.objects.filter(
-                course__teacher=request.user
+            "courses": [],
+            "courses_enabled": courses_enabled(),
+            "courses_count": 0,
+            "students_count": StudentTeacherLink.objects.filter(
+                teacher=request.user
             ).count(),
+            "homework_count": _homeworks_of_teacher(request.user).count(),
             "new_submissions_count": submissions.filter(
                 status=Submission.Status.NEW
             ).count(),
@@ -199,13 +253,20 @@ def dashboard(request):
         return render(request, "lms/dashboard_teacher.html", context)
 
     # Ученик
-    courses = Course.objects.filter(enrollments__student=request.user).select_related("teacher").distinct()
+    issues = (
+        HomeworkIssue.objects.filter(student=request.user, issued=True)
+        .select_related("homework", "teacher")
+    )
     submissions = Submission.objects.filter(student=request.user).select_related(
         "homework", "homework__course"
     )
     context = {
-        "courses": courses,
-        "courses_count": courses.count(),
+        "courses": [],
+        "courses_enabled": courses_enabled(),
+        "courses_count": 0,
+        "teacher": getattr(request.user.teacher_link, "teacher", None),
+        "issued_homeworks": issues[:8],
+        "issued_count": issues.count(),
         "submissions_count": submissions.count(),
         "checked_count": submissions.filter(status=Submission.Status.CHECKED).count(),
         "pending_count": submissions.filter(status=Submission.Status.NEW).count(),

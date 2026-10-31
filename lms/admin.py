@@ -10,6 +10,7 @@ from .models import (
     HomeworkProblem,
     Lesson,
     LessonDate,
+    StudentTeacherLink,
     Submission,
     SubmissionAnswer,
     Theme,
@@ -49,6 +50,16 @@ class CustomUserAdmin(UserAdmin):
                 "fields": ("email", "first_name", "last_name", "role", "password1", "password2"),
             },
         ),
+    )
+
+
+@admin.register(StudentTeacherLink)
+class StudentTeacherLinkAdmin(admin.ModelAdmin):
+    list_display = ("student", "teacher", "created_at")
+    list_filter = ("teacher", "created_at")
+    search_fields = (
+        "student__email", "student__first_name", "student__last_name",
+        "teacher__email", "teacher__first_name", "teacher__last_name",
     )
 
 
