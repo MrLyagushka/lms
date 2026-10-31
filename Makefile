@@ -1,9 +1,17 @@
 .DEFAULT_GOAL := help
 
-# FIX: проброс профиля PostgreSQL. По умолчанию `make deploy` поднимает только
-# SQLite-вариант; для прода с базой используйте POSTGRES=1, например:
-#   make deploy POSTGRES=1
-# Это добавляет «--profile postgres» к docker compose и включает сервис db.
+# FIX: проброс профиля PostgreSQL. Профиль включается, если передано
+# POSTGRES=1 (make deploy POSTGRES=1) ИЛИ если в .env уже выбран
+# postgresql-движок (DB_ENGINE содержит «postgres»). Раньше при
+# DB_ENGINE=...postgresql в .env пользователь запускал обычный
+# «make deploy» — сервис db не поднимался (профиль выключен), и web
+# бесконечно перезапускался с «could not translate host name "db"».
+# Теперь движок в .env является источником истины, POSTGRES=1 — опционален.
+ifeq ($(POSTGRES),)
+  ifneq (,$(findstring postgres,$(shell grep -E '^ *DB_ENGINE' .env 2>/dev/null)))
+    POSTGRES := 1
+  endif
+endif
 COMPOSE = docker compose $(if $(POSTGRES),--profile postgres)
 
 .PHONY: help up down restart logs logs-web status deploy shell migrate superuser check-domain init-env sqlite-to-postgres

@@ -134,6 +134,12 @@ DATABASES = {}
 
 DB_ENGINE = os.getenv("DB_ENGINE", "django.db.backends.sqlite3")
 
+# FIX: допускаем короткие aliases — в .env часто пишут просто «postgresql»,
+# а Django требует полный путь backend'а. Без этой нормализации проверка
+# ниже («sqlite3») не срабатывала и настройки БД собирались неверно.
+if DB_ENGINE in ("postgres", "postgresql"):
+    DB_ENGINE = "django.db.backends.postgresql"
+
 if DB_ENGINE == "django.db.backends.sqlite3":
     DATABASES["default"] = {
         "ENGINE": "django.db.backends.sqlite3",

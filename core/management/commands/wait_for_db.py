@@ -51,6 +51,17 @@ class Command(BaseCommand):
                             f"попыток: {exc}"
                         )
                     )
+                    # FIX: «could not translate host name "db"» означает, что
+                    # контейнер PostgreSQL (сервис db) просто не запущен —
+                    # профиль postgres был выключен при деплое. Даём прямую
+                    # подсказку вместо абстрактной ошибки сети.
+                    if "translate host name" in str(exc):
+                        self.stderr.write(self.style.ERROR(
+                            "[HINT] Хост БД не резолвится: сервис db не поднят.\n"
+                            "       Обновите Makefile (git pull) — он теперь сам включает профиль по DB_ENGINE в .env; либо выполните: make deploy POSTGRES=1\n"
+                            "       (Makefile также сам включает профиль, если в .env\n"
+                            "       стоит DB_ENGINE=*postgresql*)."
+                        ))
                     raise SystemExit(1) from exc
                 self.stdout.write(
                     f"[..] Ожидание БД '{alias}' ({attempt}/{retries}): {exc.__class__.__name__}. "
