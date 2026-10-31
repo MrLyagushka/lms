@@ -30,10 +30,15 @@ services:
         condition: service_healthy
         restart: true
         required: false   # сервис опционален (профиль postgres) — не блокирует запуск без него
+    # FIX: entrypoint-скрипт лежит в scripts/ и монтируется volume'ом .:/app,
+    # поэтому обновляется на сервере без пересборки образа (в отличие от
+    # manage.py-команд, которые могут «протухнуть» в volume).
+    # set -e — любая упавшая команда завершает контейнер с ненулевым кодом;
+    # `make up` увидит статус exited + логи, а не будет ждать healthy до таймаута.
+    # Проверка wait_for_db даёт внятное сообщение вместо «Unknown command»,
+    # которое раньше бесконечно перезапускало lms_web (restart: unless-stopped).
     command: >
-      sh -c "python manage.py wait_for_db &&
-             python manage.py migrate --noinput &&
-             python manage.py collectstatic --noinput &&
+      sh -c "/app/scripts/docker_entrypoint.sh &&
              gunicorn core.wsgi:application --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-3}"
     # FIX: healthcheck проверяет только то, что gunicorn СЛУШАЕТ порт 8000
     # (connect + handshake OK), а не статус ответа. Приложение может долго

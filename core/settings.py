@@ -88,6 +88,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     # Local apps
+    # FIX: приложение «core» обязательно должно быть в INSTALLED_APPS, иначе
+    # Django не находит кастомные команды из core/management/commands/
+    # (в контейнере это роняло entrypoint с «Unknown command: 'wait_for_db'»,
+    # и lms_web бесконечно перезапускался — restart: unless-stopped).
+    'core',
     'lms',
 ]
 

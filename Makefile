@@ -86,6 +86,13 @@ superuser:       ## Создать суперпользователя
 	$(COMPOSE) exec web python manage.py createsuperuser
 
 check-domain:    ## Проверить соответствие домена в .env и Caddyfile
+	@set -e; \
+	st=$$($(COMPOSE) ps --format '{{.Service}} {{.State}}' 2>/dev/null | awk '$$1=="web"{print $$2}'); \
+	if [ "$$st" != "running" ]; then \
+		echo "[!] Контейнер web не запущен (статус: $${st:-не найден}). check-domain пропущен."; \
+		echo "[] См. причины: make logs-web ; после починки — make check-domain"; \
+		exit 0; \
+	fi; \
 	$(COMPOSE) exec web python /app/scripts/check_domain.py
 
 init-env:        ## Инициализировать .env (локально, от root; больше НЕ вызывается из up/deploy)
