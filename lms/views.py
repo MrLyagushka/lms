@@ -168,6 +168,7 @@ def dashboard(request):
                 teacher=request.user
             ).count(),
             "homework_count": _homeworks_of_teacher(request.user).count(),
+            "homeworks": _homeworks_of_teacher(request.user).order_by("-created_at")[:6],
             "new_submissions_count": submissions.filter(
                 status=Submission.Status.NEW
             ).count(),

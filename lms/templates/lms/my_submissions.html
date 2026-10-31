@@ -11,7 +11,7 @@
         <div class="flex items-center justify-between">
             <div>
                 <p class="font-medium text-slate-800 dark:text-gray-100">{{ s.homework.title }}</p>
-                <p class="text-xs text-slate-400 dark:text-gray-500 mt-0.5">{{ s.homework.course.title }} · сдано {{ s.submitted_at|date:"d.m.Y H:i" }}</p>
+                <p class="text-xs text-slate-400 dark:text-gray-500 mt-0.5">сдано {{ s.submitted_at|date:"d.m.Y H:i" }}</p>
             </div>
             <div class="flex items-center gap-3">
                 {% if s.grade is not None %}
@@ -31,7 +31,6 @@
 {% else %}
 <div class="card p-12 text-center">
     <p class="text-slate-400 dark:text-gray-500">Вы пока не сдавали работы.</p>
-    <a href="{% url 'course_list' %}" class="inline-block mt-3 text-brand-600 dark:text-brand-400 hover:underline text-sm">Перейти в каталог курсов</a>
 </div>
 {% endif %}
 {% endblock %}

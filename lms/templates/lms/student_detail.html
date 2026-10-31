@@ -56,59 +56,40 @@
 
 <div class="grid lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2 space-y-6">
-        <!-- Курсы ученика -->
+        <!-- Выданные ДЗ -->
         <div class="card p-6">
-            <h2 class="font-semibold text-slate-800 dark:text-gray-100 mb-4">Курсы</h2>
-            {% if enrollments %}
+            <h2 class="font-semibold text-slate-800 dark:text-gray-100 mb-4">Выданные домашние задания</h2>
+            {% if issues %}
             <div class="space-y-3">
-                {% for e in enrollments %}
+                {% for issue in issues %}
                 <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-100 dark:border-gray-700 p-4">
                     <div class="min-w-0">
-                        <a href="{{ e.course.get_absolute_url }}" class="font-medium text-slate-700 dark:text-gray-200 hover:text-brand-600 truncate block">{{ e.course.title }}</a>
-                        <p class="text-xs text-slate-400 dark:text-gray-500 mt-0.5">привязан(а) {{ e.enrolled_at|date:"d.m.Y" }}</p>
+                        <a href="{{ issue.homework.get_absolute_url }}" class="font-medium text-slate-700 dark:text-gray-200 hover:text-brand-600 truncate block">{{ issue.homework.title }}</a>
+                        <p class="text-xs text-slate-400 dark:text-gray-500 mt-0.5">{{ issue.teacher.full_name }} · выдано {{ issue.issued_at|date:"d.m.Y" }}</p>
                     </div>
-                    {% if not student.is_superuser %}
-                    <form method="post" action="{% url 'student_unenroll_course' student.pk e.pk %}"
-                          onsubmit="return confirm('Отвязать ученика от курса «{{ e.course.title|escapejs }}»?');"
-                          class="shrink-0">
-                        {% csrf_token %}
-                        <button type="submit" class="text-sm text-red-500 hover:text-red-600">Отвязать</button>
-                    </form>
-                    {% endif %}
+                    <span class="badge shrink-0
+                        {% if issue.submission %}bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300
+                        {% else %}bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300{% endif %}">
+                        {% if issue.submission %}Сдано{% else %}Не сдано{% endif %}
+                    </span>
                 </div>
                 {% endfor %}
             </div>
             {% else %}
-            <p class="text-sm text-slate-400 dark:text-gray-500">Нет привязанных курсов.</p>
-            {% endif %}
-
-            {% if teacher_courses %}
-            <form method="post" action="{% url 'student_enroll_course' student.pk %}" class="flex flex-col sm:flex-row gap-3 mt-5 pt-5 border-t border-slate-100 dark:border-gray-700">
-                {% csrf_token %}
-                <select name="course_id" class="form-input flex-1" required>
-                    <option value="">Добавить на курс…</option>
-                    {% for c in teacher_courses %}
-                        <option value="{{ c.pk }}">{{ c.title }}</option>
-                    {% endfor %}
-                </select>
-                <button type="submit"
-                        class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl px-5 py-2.5 transition shrink-0">
-                    Добавить
-                </button>
-            </form>
+            <p class="text-sm text-slate-400 dark:text-gray-500">Ученику пока не выдавали домашних заданий.</p>
             {% endif %}
         </div>
 
         <!-- Работы -->
         <div class="card p-6">
-            <h2 class="font-semibold text-slate-800 dark:text-gray-100 mb-4">Домашние задания</h2>
+            <h2 class="font-semibold text-slate-800 dark:text-gray-100 mb-4">Сданные работы</h2>
             {% if submissions %}
             <div class="divide-y divide-slate-50 dark:divide-gray-700 -my-2">
                 {% for s in submissions %}
                 <div class="py-3 flex items-center justify-between gap-3">
                     <div class="min-w-0">
                         <a href="{{ s.homework.get_absolute_url }}" class="font-medium text-sm text-slate-700 dark:text-gray-200 hover:text-brand-600 truncate block">{{ s.homework.title }}</a>
-                        <p class="text-xs text-slate-400 dark:text-gray-500 mt-0.5">{{ s.homework.course.title }} · {{ s.submitted_at|date:"d.m.Y H:i" }}</p>
+                        <p class="text-xs text-slate-400 dark:text-gray-500 mt-0.5">{{ s.submitted_at|date:"d.m.Y H:i" }}</p>
                     </div>
                     <div class="flex items-center gap-3 shrink-0">
                         <span class="badge hidden sm:inline-flex
@@ -130,21 +111,19 @@
     </div>
 
     <div>
-        <!-- Предстоящие занятия -->
+        <!-- Быстрые действия -->
         <div class="card p-6">
-            <h2 class="font-semibold text-slate-800 dark:text-gray-100 mb-4">Предстоящие занятия</h2>
-            {% if upcoming %}
-            <div class="space-y-3">
-                {% for ld in upcoming %}
-                <a href="{{ ld.lesson.get_absolute_url }}" class="block rounded-xl border border-slate-100 dark:border-gray-700 p-4 hover:border-brand-200 dark:hover:border-brand-700 transition">
-                    <p class="text-sm font-medium text-slate-700 dark:text-gray-200">{{ ld.lesson.title }}</p>
-                    <p class="text-xs text-slate-400 dark:text-gray-500 mt-1">{{ ld.enrollment.course.title }} · {{ ld.date|date:"d.m.Y H:i" }}</p>
+            <h2 class="font-semibold text-slate-800 dark:text-gray-100 mb-4">Действия</h2>
+            <div class="space-y-2">
+                <a href="{% url 'homework_create' %}"
+                   class="block text-center bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl px-5 py-2.5 transition">
+                    Выдать новое ДЗ
                 </a>
-                {% endfor %}
+                <a href="{% url 'student_edit' student.pk %}"
+                   class="block text-center border border-slate-200 dark:border-gray-700 text-slate-600 dark:text-gray-300 hover:border-brand-300 text-sm font-medium rounded-xl px-5 py-2.5 transition">
+                    Редактировать ученика
+                </a>
             </div>
-            {% else %}
-            <p class="text-sm text-slate-400 dark:text-gray-500">Даты занятий не назначены.</p>
-            {% endif %}
         </div>
     </div>
 </div>

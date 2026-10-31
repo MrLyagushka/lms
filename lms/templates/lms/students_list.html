@@ -32,7 +32,7 @@
             <thead>
                 <tr class="text-left text-slate-400 dark:text-gray-500 border-b border-slate-100 dark:border-gray-800">
                     <th class="px-5 py-3 font-medium">Ученик</th>
-                    <th class="px-5 py-3 font-medium">Курсы</th>
+                    <th class="px-5 py-3 font-medium">Выдано ДЗ</th>
                     <th class="px-5 py-3 font-medium">Работы</th>
                     <th class="px-5 py-3 font-medium">Ср. балл</th>
                     <th class="px-5 py-3 font-medium">След. занятие</th>
@@ -62,7 +62,7 @@
                             </div>
                         </div>
                     </td>
-                    <td class="px-5 py-3 text-slate-600 dark:text-gray-300">{{ row.courses_count }}</td>
+                    <td class="px-5 py-3 text-slate-600 dark:text-gray-300">{{ row.issued_count }}</td>
                     <td class="px-5 py-3 text-slate-600 dark:text-gray-300">
                         {{ row.total }}
                         {% if row.new_count %}

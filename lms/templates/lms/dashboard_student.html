@@ -7,17 +7,17 @@
         <h1 class="text-2xl font-semibold text-gray-800 dark:text-gray-100">Здравствуйте, {{ user.full_name }}</h1>
         <p class="text-gray-400 dark:text-gray-500 mt-1">Панель ученика</p>
     </div>
-    <a href="{% url 'course_list' %}"
+    <a href="{% url 'my_submissions' %}"
         class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white text-sm font-medium rounded-xl px-4 py-2.5 transition">
-        Найти курс
+        Мои задания
     </a>
 </div>
 
 <!-- Stats -->
 <div class="grid grid-cols-3 gap-4 mb-8">
     <div class="card p-5">
-        <p class="text-sm text-gray-400 dark:text-gray-500">Моих курсов</p>
-        <p class="text-2xl font-semibold text-gray-800 dark:text-gray-100 mt-1">{{ courses_count }}</p>
+        <p class="text-sm text-gray-400 dark:text-gray-500">Выдано ДЗ</p>
+        <p class="text-2xl font-semibold text-gray-800 dark:text-gray-100 mt-1">{{ issued_count }}</p>
     </div>
     <div class="card p-5">
         <p class="text-sm text-gray-400 dark:text-gray-500">Работ сдано</p>
@@ -30,27 +30,26 @@
 </div>
 
 <div class="grid lg:grid-cols-3 gap-6">
-    <!-- Courses -->
+    <!-- Выданные ДЗ -->
     <div class="lg:col-span-2">
         <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Мои курсы</h2>
-            <a href="{% url 'course_list' %}" class="text-sm text-brand-600 dark:text-brand-400 hover:underline">Каталог</a>
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Мои задания</h2>
+            <a href="{% url 'my_submissions' %}" class="text-sm text-brand-600 dark:text-brand-400 hover:underline">Мои сдачи</a>
         </div>
 
-        {% if courses %}
+        {% if issued_homeworks %}
         <div class="grid sm:grid-cols-2 gap-4">
-            {% for course in courses %}
-            <a href="{{ course.get_absolute_url }}" class="card p-5 block hover:border-brand-200 dark:hover:border-brand-700 transition">
-                <span class="badge bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300">{{ course.get_subject_display }}</span>
-                <p class="font-medium text-gray-800 dark:text-gray-100 mt-3">{{ course.title }}</p>
-                <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">{{ course.lessons_count }} уроков</p>
+            {% for issue in issued_homeworks %}
+            <a href="{{ issue.homework.get_absolute_url }}" class="card p-5 block hover:border-brand-200 dark:hover:border-brand-700 transition">
+                <span class="badge bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300">{{ issue.teacher.full_name }}</span>
+                <p class="font-medium text-gray-800 dark:text-gray-100 mt-3">{{ issue.homework.title }}</p>
+                <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">{{ issue.homework.problems.count }} задач(и)</p>
             </a>
             {% endfor %}
         </div>
         {% else %}
         <div class="card p-10 text-center">
-            <p class="text-gray-400 dark:text-gray-500">Вы ещё не записаны ни на один курс.</p>
-            <a href="{% url 'course_list' %}" class="inline-block mt-3 text-brand-600 dark:text-brand-400 hover:underline text-sm">Перейти в каталог</a>
+            <p class="text-gray-400 dark:text-gray-500">Вам пока не выдавали домашние задания.</p>
         </div>
         {% endif %}
     </div>
@@ -67,7 +66,7 @@
             <a href="{% url 'homework_detail' s.homework.pk %}"
                 class="card p-4 block hover:border-brand-200 dark:hover:border-brand-700 transition">
                 <p class="text-sm font-medium text-gray-800 dark:text-gray-100">{{ s.homework.title }}</p>
-                <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ s.homework.course.title }}</p>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5"></p>
                 <div class="flex items-center gap-2 mt-2">
                     <span class="badge
                         {% if s.status == 'NEW' %}bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300
