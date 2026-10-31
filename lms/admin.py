@@ -2,14 +2,10 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
 from .models import (
-    Course,
     CustomUser,
-    Enrollment,
     Homework,
     HomeworkIssue,
     HomeworkProblem,
-    Lesson,
-    LessonDate,
     StudentTeacherLink,
     Submission,
     SubmissionAnswer,
@@ -63,57 +59,6 @@ class StudentTeacherLinkAdmin(admin.ModelAdmin):
     )
 
 
-@admin.register(Course)
-class CourseAdmin(admin.ModelAdmin):
-    list_display = ("title", "subject", "grade_level", "teacher", "is_published", "students_count", "lessons_count", "created_at")
-    list_filter = ("subject", "grade_level", "is_published", "created_at")
-    list_editable = ("is_published",)
-    search_fields = ("title", "description")
-    prepopulated_fields = {"slug": ("title",)}
-    autocomplete_fields = ("teacher",)
-
-    @admin.display(description="Учеников")
-    def students_count(self, obj):
-        return obj.students_count
-
-    @admin.display(description="Уроков")
-    def lessons_count(self, obj):
-        return obj.lessons_count
-
-
-@admin.register(Enrollment)
-class EnrollmentAdmin(admin.ModelAdmin):
-    list_display = ("student", "course", "enrolled_at")
-    list_filter = ("course", "enrolled_at")
-    search_fields = ("student__email", "course__title")
-    autocomplete_fields = ("student", "course")
-
-
-@admin.register(Lesson)
-class LessonAdmin(admin.ModelAdmin):
-    # FIX: у занятия нет общей даты/отметки — всё индивидуально для каждого ученика.
-    list_display = ("title", "course", "order", "created_at")
-    list_filter = ("course",)
-    search_fields = ("title", "content")
-    autocomplete_fields = ("course",)
-
-
-@admin.register(LessonDate)
-class LessonDateAdmin(admin.ModelAdmin):
-    list_display = ("student", "lesson", "course", "date", "is_conducted", "conducted_at")
-    list_filter = ("lesson__course", "is_conducted")
-    search_fields = ("enrollment__student__email", "lesson__title")
-    autocomplete_fields = ("enrollment", "lesson")
-
-    @admin.display(description="Ученик")
-    def student(self, obj):
-        return obj.enrollment.student
-
-    @admin.display(description="Курс")
-    def course(self, obj):
-        return obj.enrollment.course
-
-
 class HomeworkProblemInline(admin.TabularInline):
     model = HomeworkProblem
     extra = 0
@@ -121,34 +66,25 @@ class HomeworkProblemInline(admin.TabularInline):
 
 @admin.register(Homework)
 class HomeworkAdmin(admin.ModelAdmin):
-    # FIX: выдача и дедлайны — в HomeworkIssue (индивидуально для ученика).
-    list_display = ("title", "course", "lesson", "answer_type", "require_photo", "created_at")
-    list_filter = ("course", "answer_type", "require_photo")
+    # NOTE: выдача и дедлайны — в HomeworkIssue (индивидуально для ученика).
+    list_display = ("title", "answer_type", "require_photo", "created_at")
+    list_filter = ("answer_type", "require_photo")
     search_fields = ("title", "task")
-    autocomplete_fields = ("course", "lesson")
     inlines = [HomeworkProblemInline]
 
 
 @admin.register(HomeworkIssue)
 class HomeworkIssueAdmin(admin.ModelAdmin):
-    list_display = ("student", "course", "homework", "auto_issue", "issued", "issued_at", "deadline")
-    list_filter = ("enrollment__course", "auto_issue", "issued")
-    search_fields = ("enrollment__student__email", "homework__title")
-    autocomplete_fields = ("enrollment", "homework")
-
-    @admin.display(description="Ученик")
-    def student(self, obj):
-        return obj.enrollment.student
-
-    @admin.display(description="Курс")
-    def course(self, obj):
-        return obj.enrollment.course
+    list_display = ("student", "teacher", "homework", "issued", "issued_at", "deadline")
+    list_filter = ("teacher", "issued")
+    search_fields = ("student__email", "homework__title")
+    autocomplete_fields = ("student", "teacher", "homework")
 
 
 @admin.register(HomeworkProblem)
 class HomeworkProblemAdmin(admin.ModelAdmin):
     list_display = ("homework", "order", "answer_type", "expected_answer")
-    list_filter = ("answer_type", "homework__course")
+    list_filter = ("answer_type",)
     search_fields = ("text", "expected_answer", "homework__title")
 
 

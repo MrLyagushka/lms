@@ -3,13 +3,10 @@ from django.contrib.auth import get_user_model
 from django.forms import inlineformset_factory
 
 from .models import (
-    Course,
     CustomUser,
     Homework,
     HomeworkIssue,
     HomeworkProblem,
-    Lesson,
-    LessonDate,
     StudentTeacherLink,
     Submission,
     Theme,
@@ -73,100 +70,6 @@ class UserRegistrationForm(forms.ModelForm):
 
 
 
-class CourseForm(forms.ModelForm):
-    """Форма создания / редактирования курса."""
-
-    class Meta:
-        model = Course
-        fields = ("title", "subject", "grade_level", "description", "cover")
-        widgets = {
-            "title": forms.TextInput(
-                attrs={"class": "form-input", "placeholder": "Например: 8 класс — Математика"}
-            ),
-            "subject": forms.Select(attrs={"class": "form-input"}),
-            "grade_level": forms.Select(attrs={"class": "form-input"}),
-            "description": forms.Textarea(
-                attrs={"class": "form-input", "rows": 4, "placeholder": "Кратко опишите курс"}
-            ),
-        }
-
-
-class LessonForm(forms.ModelForm):
-    """Форма создания / редактирования урока (план занятия).
-
-    FIX: занятия на курсе создаются без даты — дата назначается
-    каждому ученику отдельно после привязки к курсу (LessonDateForm).
-    """
-
-    class Meta:
-        model = Lesson
-        fields = ("title", "order", "content")
-        widgets = {
-            "title": forms.TextInput(attrs={"class": "form-input"}),
-            "order": forms.NumberInput(attrs={"class": "form-input", "min": 1}),
-            "content": forms.Textarea(
-                attrs={
-                    "class": "form-input",
-                    "rows": 8,
-                    "placeholder": "Материалы занятия. Поддерживается LaTeX: $x^2$ и $$\\frac{a}{b}$$",
-                }
-            ),
-        }
-
-
-class LessonDateForm(forms.ModelForm):
-    """Дата занятия и отметка о проведении для конкретного ученика."""
-
-    class Meta:
-        model = LessonDate
-        fields = ("date", "is_conducted")
-        widgets = {
-            "date": forms.DateTimeInput(
-                attrs={"class": "form-input", "type": "datetime-local"},
-                format="%Y-%m-%dT%H:%M",
-            ),
-            "is_conducted": forms.CheckboxInput(
-                attrs={"class": "rounded border-slate-300 text-brand-500 focus:ring-brand-400"},
-            ),
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["date"].input_formats = ["%Y-%m-%dT%H:%M"]
-        self.fields["is_conducted"].required = False
-        self.fields["is_conducted"].label = "Проведено"
-
-
-class EnrollStudentForm(forms.Form):
-    """Преподаватель привязывает ученика к курсу по email.
-
-    NOTE: используется только при включённом функционале курсов
-    (FEATURE COURSES — добавим в обновлениях). Для текущей привязки
-    «ученик ↔ учитель» есть LinkStudentForm.
-    """
-
-    email = forms.EmailField(
-        label="Email ученика",
-        widget=forms.EmailInput(attrs={"class": "form-input", "placeholder": "student@mail.ru"}),
-    )
-
-    def __init__(self, *args, course=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.course = course
-
-    def clean_email(self):
-        from .models import Enrollment
-
-        email = self.cleaned_data["email"].strip().lower()
-        student = User.objects.filter(email__iexact=email, role=User.Role.STUDENT).first()
-        if not student:
-            raise forms.ValidationError("Ученик с таким email не найден.")
-        if self.course and Enrollment.objects.filter(student=student, course=self.course).exists():
-            raise forms.ValidationError("Этот ученик уже привязан к курсу.")
-        self.student = student
-        return email
-
-
 class LinkStudentForm(forms.Form):
     """Учитель привязывает ученика к себе по email (основная связь текущей версии)."""
 
@@ -198,9 +101,8 @@ class LinkStudentForm(forms.Form):
 class HomeworkForm(forms.ModelForm):
     """Форма создания / редактирования домашнего задания.
 
-    NOTE: автовыдача и дедлайны перенесены в панель ученика (HomeworkIssueForm),
-    здесь остаются только настройки самого задания. Поле «Курс» скрыто до
-    обновлений — ДЗ создаётся без курса и выдаётся привязанным ученикам.
+    Здесь только настройки самого задания: ДЗ создаётся учителем
+    и выдаётся привязанным ученикам (см. HomeworkIssueStudentsForm).
     """
 
     class Meta:
@@ -216,7 +118,6 @@ class HomeworkForm(forms.ModelForm):
         )
         widgets = {
             "title": forms.TextInput(attrs={"class": "form-input"}),
-            "lesson": forms.Select(attrs={"class": "form-input"}),
             "task": forms.Textarea(
                 attrs={
                     "class": "form-input",
@@ -239,12 +140,8 @@ class HomeworkForm(forms.ModelForm):
             "require_photo": forms.CheckboxInput(attrs={"class": "h-4 w-4 rounded border-slate-300"}),
         }
 
-    def __init__(self, *args, course=None, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # NOTE: поле «Урок» относится к курсовому функционалу (добавим в обновлениях).
-        self.fields.pop("lesson", None)
-        if course is not None and "lesson" in self.fields:
-            self.fields["lesson"].queryset = course.lessons.all()
         # FIX: если ДЗ состоит из отдельных задач, общее условие необязательно.
         self.fields["task"].required = False
         self.fields["numeric_tolerance"].required = False
@@ -267,9 +164,8 @@ class HomeworkIssueForm(forms.ModelForm):
 
     class Meta:
         model = HomeworkIssue
-        fields = ("auto_issue", "issued", "deadline")
+        fields = ("issued", "deadline")
         widgets = {
-            "auto_issue": forms.CheckboxInput(attrs={"class": "h-4 w-4 rounded border-slate-300"}),
             "issued": forms.CheckboxInput(attrs={"class": "h-4 w-4 rounded border-slate-300"}),
             "deadline": forms.DateTimeInput(
                 attrs={"class": "form-input", "type": "datetime-local"},
@@ -283,8 +179,6 @@ class HomeworkIssueForm(forms.ModelForm):
         self.fields["deadline"].input_formats = ["%Y-%m-%dT%H:%M"]
         self.fields["deadline"].required = False
         self.fields["issued"].required = False
-        # NOTE: автовыдача привязана к датам занятий по курсу — скрываем до обновлений.
-        self.fields.pop("auto_issue", None)
 
 
 class HomeworkIssueStudentsForm(forms.Form):
