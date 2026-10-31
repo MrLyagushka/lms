@@ -20,13 +20,18 @@ help:            ## Показать список доступных коман�
 # [Errno 13] Permission denied на .env: контейнер работает от пользователя lms,
 # а .env принадлежит root). Все переменные настраиваются один раз через
 # ./install.sh или вручную; здесь только проверка, что .env существует.
+# FIX: раньше здесь использовались `exec`-команды (wait_for_db, migrate,
+# collectstatic). Контейнер lms_web запускает entrypoint со связкой
+# «wait_for_db && migrate && collectstatic && gunicorn»: если база ещё не
+# готова, exec попадает ровно в момент kill этого shell'а и получает
+# SIGKILL — make падает с Error 137 (128+9), хотя проект штатно поднимается
+# сам. Теперь up только запускает сервисы и ждёт healthy-статуса web:
+# миграции и статика выполняются entrypoint'ом контейнера.
 up:              ## Собрать и запустить проект (POSTGRES=1 — с базой PostgreSQL)
 	@test -f .env || (echo "[!] .env не найден. Выполните сначала: ./install.sh" && exit 1)
 	$(COMPOSE) build
-	$(COMPOSE) up -d
-	$(COMPOSE) exec web python manage.py wait_for_db
-	$(COMPOSE) exec web python manage.py migrate --noinput
-	$(COMPOSE) exec web python manage.py collectstatic --noinput
+	$(COMPOSE) up -d --wait
+	@echo "[OK] Сервисы подняты и здоровы. Логи: make logs"
 
 down:            ## Остановить проект
 	$(COMPOSE) down

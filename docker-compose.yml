@@ -32,11 +32,32 @@ services:
              python manage.py migrate --noinput &&
              python manage.py collectstatic --noinput &&
              gunicorn core.wsgi:application --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-3}"
+    # FIX: healthcheck через HTTP-запрос к gunicorn вместо «manage.py check»:
+    # 1) manage.py check не проверяет, что приложение реально обслуживает
+    #    запросы — healthy-статус наступал до готовности сайта;
+    # 2) в slim-образе нет curl/wget, поэтому проверка сделана на python
+    #    (он есть в образе всегда); ответы <400 (в т.ч. 301 редирект
+    #    /admin/ на логин) считаются успехом.
+    # start_period 40s + retries 30 дают ~5 минут на миграции при первом
+    # старте, чтобы `up -d --wait` не падал раньше времени.
     healthcheck:
-      test: ["CMD", "python", "manage.py", "check"]
-      interval: 30s
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import sys, urllib.request
+          try:
+              with urllib.request.urlopen('http://127.0.0.1:8000/admin/', timeout=5) as r:
+                  sys.exit(0 if r.status < 400 else 1)
+          except urllib.error.HTTPError as e:
+              sys.exit(0 if e.code < 400 else 1)
+          except Exception:
+              sys.exit(1)
+      interval: 10s
       timeout: 10s
-      retries: 3
+      retries: 30
+      start_period: 40s
 
   # FIX: PostgreSQL для режима прода. Включается профилем «postgres»:
   #   docker compose --profile postgres up -d   (или make deploy POSTGRES=1)
