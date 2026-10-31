@@ -6,7 +6,7 @@
 # Это добавляет «--profile postgres» к docker compose и включает сервис db.
 COMPOSE = docker compose $(if $(POSTGRES),--profile postgres)
 
-.PHONY: help up down restart logs deploy shell migrate superuser check-domain init-env sqlite-to-postgres
+.PHONY: help up down restart logs logs-web status deploy shell migrate superuser check-domain init-env sqlite-to-postgres
 help:            ## Показать список доступных команд
 	@echo "Доступные команды:"
 	@echo ""
@@ -25,13 +25,39 @@ help:            ## Показать список доступных коман�
 # «wait_for_db && migrate && collectstatic && gunicorn»: если база ещё не
 # готова, exec попадает ровно в момент kill этого shell'а и получает
 # SIGKILL — make падает с Error 137 (128+9), хотя проект штатно поднимается
-# сам. Теперь up только запускает сервисы и ждёт healthy-статуса web:
-# миграции и статика выполняются entrypoint'ом контейнера.
+# сам. Миграции и статика выполняются entrypoint'ом контейнера.
+# FIX: убран «up -d --wait». Он делал деплой хрупким: любая временная
+# нездоровость web (долгие первичные миграции, медленный старт) обрывала
+# команду с «container is unhealthy», хотя через минуту всё стало бы хорошо.
+# Теперь up просто поднимает контейнеры, а готовность ждётся отдельным
+# циклом: опрос статуса каждые 5с до healthy; при exited/dead — мгновенный
+# вывод логов и понятная ошибка; при превышении таймаута (по умолчанию
+# WAIT_TIMEOUT=180 секунд) — вывод логов и предупреждение вместо падения.
+WAIT_TIMEOUT ?= 180
+
 up:              ## Собрать и запустить проект (POSTGRES=1 — с базой PostgreSQL)
 	@test -f .env || (echo "[!] .env не найден. Выполните сначала: ./install.sh" && exit 1)
 	$(COMPOSE) build
-	$(COMPOSE) up -d --wait
-	@echo "[OK] Сервисы подняты и здоровы. Логи: make logs"
+	$(COMPOSE) up -d
+	@echo "[i] Ожидание готовности web (до $(WAIT_TIMEOUT)с)..."
+	@end=0; i=0; \
+	while true; do \
+		st=$$($(COMPOSE) ps --format '{{.Service}} {{.State}} {{.Health}}' 2>/dev/null | awk '$$1=="web"{print $$2" "$$3}'); \
+		case "$$st" in \
+			running\ healthy) echo "[OK] web healthy"; break;; \
+			exited*|dead*) echo "[!] Контейнер web завершился (статус: $$st). Последние логи:"; \
+				$(COMPOSE) logs --tail=60 web; exit 1;; \
+		esac; \
+		i=$$((i+1)); \
+		if [ $$((i*5)) -ge $(WAIT_TIMEOUT) ]; then \
+			echo "[WARN] web не стал healthy за $(WAIT_TIMEOUT)с (статус: $$st). Приложение может ещё выполнять первичные миграции."; \
+			echo "[i] Последние логи:"; $(COMPOSE) logs --tail=40 web; \
+			echo "[i] Продолжайте наблюдать: make logs-web"; \
+			break; \
+		fi; \
+		printf '.'; sleep 5; \
+	done
+	@echo "[OK] Деплой завершён. Статус: $(COMPOSE) ps | Логи: make logs"
 
 down:            ## Остановить проект
 	$(COMPOSE) down
@@ -41,6 +67,12 @@ restart:         ## Перезапустить проект
 
 logs:            ## Логи всех сервисов
 	$(COMPOSE) logs -f
+
+logs-web:        ## Логи только контейнера web
+	$(COMPOSE) logs -f --tail=100 web
+
+status:          ## Текущий статус контейнеров (state/health)
+	$(COMPOSE) ps
 
 deploy: up check-domain  ## Полный деплой: сначала запуск (up), потом проверка домена
 

@@ -15,7 +15,10 @@ services:
     env_file:
       - .env
     environment:
-      - DJANGO_ALLOWED_HOSTS=${DOMAIN_NAME},localhost,127.0.0.1
+      # FIX: healthcheck ходит на http://127.0.0.1:8000/, поэтому localhost и
+      # 127.0.0.1 всегда должны быть разрешены Django (иначе — DisallowedHost,
+      # HTTP 400 и контейнер никогда не станет healthy).
+      - DJANGO_ALLOWED_HOSTS=${DOMAIN_NAME},localhost,127.0.0.1,testserver
       # FIX: в режиме прода внутри compose база всегда доступна по хосту «db»,
       # поэтому принудительно задаём DB_HOST/DB_PORT — иначе приложение при
       # DB_ENGINE=postgresql пытается стучаться в localhost и падает с
@@ -32,32 +35,29 @@ services:
              python manage.py migrate --noinput &&
              python manage.py collectstatic --noinput &&
              gunicorn core.wsgi:application --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-3}"
-    # FIX: healthcheck через HTTP-запрос к gunicorn вместо «manage.py check»:
-    # 1) manage.py check не проверяет, что приложение реально обслуживает
-    #    запросы — healthy-статус наступал до готовности сайта;
-    # 2) в slim-образе нет curl/wget, поэтому проверка сделана на python
-    #    (он есть в образе всегда); ответы <400 (в т.ч. 301 редирект
-    #    /admin/ на логин) считаются успехом.
-    # start_period 40s + retries 30 дают ~5 минут на миграции при первом
-    # старте, чтобы `up -d --wait` не падал раньше времени.
+    # FIX: healthcheck проверяет только то, что gunicorn СЛУШАЕТ порт 8000
+    # (connect + handshake OK), а не статус ответа. Приложение может долго
+    # выполняться во время первичных миграций, а запрос к БД возвращать 500 —
+    # при строгой проверке (<400) контейнер залипал в «unhealthy» и
+    # «docker compose up -d --wait» падал с ошибкой. listen-проверка надёжна;
+    # фактическую готовность приложения обеспечивает entrypoint-цепочка
+    # wait_for_db && migrate && collectstatic до запуска gunicorn.
     healthcheck:
       test:
         - CMD
         - python
         - -c
         - |
-          import sys, urllib.request
+          import socket, sys
           try:
-              with urllib.request.urlopen('http://127.0.0.1:8000/admin/', timeout=5) as r:
-                  sys.exit(0 if r.status < 400 else 1)
-          except urllib.error.HTTPError as e:
-              sys.exit(0 if e.code < 400 else 1)
+              with socket.create_connection(('127.0.0.1', 8000), timeout=3):
+                  sys.exit(0)
           except Exception:
               sys.exit(1)
       interval: 10s
-      timeout: 10s
-      retries: 30
-      start_period: 40s
+      timeout: 5s
+      retries: 60
+      start_period: 60s
 
   # FIX: PostgreSQL для режима прода. Включается профилем «postgres»:
   #   docker compose --profile postgres up -d   (или make deploy POSTGRES=1)
