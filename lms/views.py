@@ -63,6 +63,20 @@ def _courses_hidden_response(request):
     return None
 
 
+def _student_teacher(user):
+    """Учитель, к которому привязан ученик; None, если привязки нет.
+
+    FIX: OneToOneField-дескриптор бросает RelatedObjectDoesNotExist при
+    обращении к отсутствующей связанной записи (getattr с default здесь
+    не спасает), что давало 500 на /dashboard/ для пользователей без
+    StudentTeacherLink (например, суперпользователь).
+    """
+    try:
+        return user.teacher_link.teacher
+    except StudentTeacherLink.DoesNotExist:
+        return None
+
+
 def _homeworks_of_teacher(teacher):
     """Все ДЗ учителя: прямые выдачи + курсовые (курсы скрыты до обновлений)."""
     if teacher.is_superuser:
@@ -264,7 +278,11 @@ def dashboard(request):
         "courses": [],
         "courses_enabled": courses_enabled(),
         "courses_count": 0,
-        "teacher": getattr(request.user.teacher_link, "teacher", None),
+        # FIX: RelatedObjectDoesNotExist — у пользователя может не быть записи
+        # StudentTeacherLink (например, суперпользователь/учитель с ролью STUDENT).
+        # getattr не перехватывает это исключение (OneToOneDescriptor бросает его
+        # при доступе), поэтому используем явный try/except.
+        "teacher": _student_teacher(request.user),
         "issued_homeworks": issues[:8],
         "issued_count": issues.count(),
         "submissions_count": submissions.count(),
