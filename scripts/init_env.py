@@ -128,6 +128,7 @@ def main():
 
     env_data = parse_env(ENV_FILE)
     changed = False
+    interactive = sys.stdin.isatty()
 
     # 1. Автогенерация ключей
     print("[i] Автоматическая генерация ключей:")
@@ -141,9 +142,36 @@ def main():
         else:
             print(f"   [=] {key} — уже задан, пропускаем")
 
+    # FIX: 1.5 Выбор движка базы данных (SQLite / PostgreSQL).
+    # Раньше _ask_database была определена, но никогда не вызывалась —
+    # параметры БД не попадали в .env и прод-запуск с postgres падал
+    # из-за отсутствия DB_USER/DB_PASSWORD.
+    existing_engine = env_data.get("DB_ENGINE", "")
+    if not is_empty(existing_engine) and "postgresql" in existing_engine:
+        print("\n[i] DB_ENGINE уже задан как PostgreSQL — пропускаем опрос, сверяем параметры:")
+        missing = {k: d for k, (_, d) in POSTGRES_DEFAULTS.items() if is_empty(env_data.get(k, ""))}
+        for key, default in missing.items():
+            if interactive:
+                value = input(f"   {POSTGRES_DEFAULTS[key][0]} [{default}]: ").strip()
+                env_data[key] = value or default
+            else:
+                env_data[key] = default
+            print(f"   [~] {key} = {env_data[key]}")
+            changed = True
+        if is_empty(env_data.get("DB_PASSWORD", "")):
+            env_data["DB_PASSWORD"] = secrets.token_urlsafe(24)
+            print(f"   [+] DB_PASSWORD = {env_data['DB_PASSWORD'][:8]}... (сгенерирован)")
+            changed = True
+        env_data.setdefault("DB_HOST", "db")
+        env_data.setdefault("DB_PORT", "5432")
+    else:
+        db_changes = _ask_database(interactive)
+        if db_changes:
+            env_data.update(db_changes)
+            changed = True
+
     # 2. Запрос у пользователя
     print("\n[i] Заполнение параметров (Enter = значение по умолчанию):")
-    interactive = sys.stdin.isatty()
     for key, (hint, default) in USER_INPUT_KEYS.items():
         current = env_data.get(key, "")
         if not is_empty(current):
