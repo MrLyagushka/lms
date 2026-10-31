@@ -77,11 +77,21 @@ class CustomUser(AbstractUser):
 
     @property
     def is_teacher(self):
-        return self.role == self.Role.TEACHER
+        # Суперпользователь имеет доступ к панели учителя.
+        return self.is_superuser or self.role == self.Role.TEACHER
 
     @property
     def is_student(self):
-        return self.role == self.Role.STUDENT
+        return not self.is_superuser and self.role == self.Role.STUDENT
+
+    def get_role_display(self):
+        # Поле role не меняется — миграций это не требует.
+        # super().get_role_display() здесь невозможен: метод get_FOO_display
+        # генерируется Meta-классом Django в самом классе модели, поэтому
+        # обращаемся к choices напрямую.
+        if self.is_superuser:
+            return "Администратор"
+        return dict(self.Role.choices).get(self.role, self.role)
 
 
 class StudentTeacherLink(models.Model):
