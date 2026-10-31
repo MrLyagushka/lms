@@ -136,14 +136,13 @@
                     {% if user.is_authenticated %}
                         <!-- Десктопное меню -->
                         <div class="hidden md:flex items-center gap-1">
-                            <a href="{% url 'dashboard' %}" class="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">Мои курсы</a>
+                            <a href="{% url 'dashboard' %}" class="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">Дашборд</a>
                             {% if user.is_teacher %}
                                 <a href="{% url 'submission_list' %}" class="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">Задания</a>
                                 <a href="{% url 'students_list' %}" class="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">Ученики</a>
                             {% else %}
                                 <a href="{% url 'my_submissions' %}" class="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">Задания</a>
                             {% endif %}
-                            <a href="{% url 'course_list' %}" class="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">Курсы</a>
                             {% if user.is_superuser %}
                                 <a href="{% url 'settings' %}" class="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">Настройки</a>
                             {% endif %}
@@ -166,7 +165,7 @@
                             <button type="submit" class="px-3 py-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition">Выйти</button>
                         </form>
                     {% else %}
-                        <a href="{% url 'landing' %}" class="hidden sm:inline px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">Курсы</a>
+                        <a href="{% url 'landing' %}" class="hidden sm:inline px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">Главная</a>
                         <a href="{% url 'login' %}" class="px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition">Войти</a>
                         <a href="{% url 'register' %}" class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white font-medium transition">Регистрация</a>
                     {% endif %}

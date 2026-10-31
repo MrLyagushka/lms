@@ -7,18 +7,14 @@
         <h1 class="text-2xl font-semibold text-gray-800 dark:text-gray-100">Здравствуйте, {{ user.full_name }}</h1>
         <p class="text-gray-400 dark:text-gray-500 mt-1">Панель преподавателя</p>
     </div>
-    <a href="{% url 'course_create' %}"
+    <a href="{% url 'homework_create' %}"
         class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white text-sm font-medium rounded-xl px-4 py-2.5 transition">
-        <span class="text-lg leading-none">+</span> Новый курс
+        <span class="text-lg leading-none">+</span> Новое ДЗ
     </a>
 </div>
 
 <!-- Stats -->
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-    <div class="card p-5">
-        <p class="text-sm text-gray-400 dark:text-gray-500">Курсы</p>
-        <p class="text-2xl font-semibold text-gray-800 dark:text-gray-100 mt-1">{{ courses_count }}</p>
-    </div>
     <a href="{% url 'students_list' %}" class="card p-5 block hover:border-brand-200 dark:hover:border-brand-700 transition">
         <p class="text-sm text-gray-400 dark:text-gray-500">Ученики</p>
         <p class="text-2xl font-semibold text-gray-800 dark:text-gray-100 mt-1">{{ students_count }}</p>
@@ -34,24 +30,22 @@
 </div>
 
 <div class="grid lg:grid-cols-3 gap-6">
-    <!-- Courses -->
+    <!-- Мои ДЗ -->
     <div class="lg:col-span-2">
         <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Мои курсы</h2>
-            <a href="{% url 'course_list' %}" class="text-sm text-brand-600 dark:text-brand-400 hover:underline">Все курсы</a>
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Мои домашние задания</h2>
+            <a href="{% url 'submission_list' %}" class="text-sm text-brand-600 dark:text-brand-400 hover:underline">Все сдачи</a>
         </div>
 
-        {% if courses %}
+        {% if homeworks %}
         <div class="space-y-3">
-            {% for course in courses %}
-            <a href="{{ course.get_absolute_url }}"
+            {% for hw in homeworks %}
+            <a href="{{ hw.get_absolute_url }}"
                 class="card p-5 flex items-center justify-between hover:border-brand-200 dark:hover:border-brand-700 transition block">
                 <div>
-                    <p class="font-medium text-gray-800 dark:text-gray-100">{{ course.title }}</p>
+                    <p class="font-medium text-gray-800 dark:text-gray-100">{{ hw.title }}</p>
                     <p class="text-sm text-gray-400 dark:text-gray-500 mt-0.5">
-                        {{ course.get_subject_display }} ·
-                        {{ course.num_lessons }} уроков ·
-                        {{ course.num_students }} учеников
+                        {{ hw.problems.count }} задач(и) · создано {{ hw.created_at|date:"d.m.Y" }}
                     </p>
                 </div>
                 <span class="text-gray-300 dark:text-gray-600 text-xl">›</span>
@@ -60,8 +54,8 @@
         </div>
         {% else %}
         <div class="card p-10 text-center">
-            <p class="text-gray-400 dark:text-gray-500">У вас ещё нет курсов.</p>
-            <a href="{% url 'course_create' %}" class="inline-block mt-3 text-brand-600 dark:text-brand-400 hover:underline text-sm">Создать первый курс</a>
+            <p class="text-gray-400 dark:text-gray-500">У вас ещё нет домашних заданий.</p>
+            <a href="{% url 'homework_create' %}" class="inline-block mt-3 text-brand-600 dark:text-brand-400 hover:underline text-sm">Создать первое ДЗ</a>
         </div>
         {% endif %}
     </div>

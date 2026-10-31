@@ -25,55 +25,28 @@
     </div>
 </section>
 
-<!-- КУРСЫ -->
+<!-- КАК РАБОТАЕТ ДЗ -->
 <section class="mb-16">
     <div class="flex items-end justify-between mb-6">
         <div>
-            <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-100">Доступные курсы</h2>
-            <p class="text-gray-400 dark:text-gray-500 mt-1">Выберите направление подготовки</p>
+            <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-100">Как это работает</h2>
+            <p class="text-gray-400 dark:text-gray-500 mt-1">Домашние задания без курсов — просто и удобно</p>
         </div>
     </div>
-
-    {% if courses %}
-    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {% for course in courses %}
-        <div class="card overflow-hidden border border-gray-100 dark:border-gray-800 flex flex-col">
-            {% if course.cover %}
-            <img src="{{ course.cover.url }}" class="h-36 w-full object-cover" alt="">
-            {% else %}
-            <div class="h-36 w-full bg-gradient-to-br from-brand-500 to-brand-700 flex items-end p-4">
-                <span class="badge bg-white/20 text-white backdrop-blur">{{ course.get_subject_display }}</span>
-            </div>
-            {% endif %}
-            <div class="p-5 flex flex-col flex-1">
-                {% if course.cover %}
-                <span
-                    class="badge bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 self-start mb-2">{{
-                    course.get_subject_display }}</span>
-                {% endif %}
-                <h3 class="font-medium text-gray-800 dark:text-gray-100">{{ course.title }}</h3>
-                <p class="text-sm text-gray-400 dark:text-gray-500 mt-1 flex-1">{{ course.description|default:"Описание
-                    скоро появится"|truncatechars:110 }}</p>
-                <div class="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500 mt-3">
-                    <span>{{ course.num_lessons }} уроков</span>
-                    <span>·</span>
-                    <span>{{ course.num_students }} учеников</span>
-                </div>
-                <p class="text-xs text-gray-400 dark:text-gray-500 mt-3">Преподаватель: {{ course.teacher.full_name }}
-                </p>
-                <a href="{% url 'register' %}"
-                    class="mt-4 text-center text-sm font-medium rounded-xl px-4 py-2.5 bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white transition">
-                    Записаться
-                </a>
-            </div>
+    <div class="grid sm:grid-cols-3 gap-5">
+        <div class="card p-6 border border-gray-100 dark:border-gray-800">
+            <p class="font-medium text-gray-800 dark:text-gray-100">1. Регистрация</p>
+            <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">Создайте аккаунт ученика или преподавателя.</p>
         </div>
-        {% endfor %}
+        <div class="card p-6 border border-gray-100 dark:border-gray-800">
+            <p class="font-medium text-gray-800 dark:text-gray-100">2. Привязка и выдача</p>
+            <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">Преподаватель привязывает учеников и выдаёт домашние задания (от 1 до 500 задач).</p>
+        </div>
+        <div class="card p-6 border border-gray-100 dark:border-gray-800">
+            <p class="font-medium text-gray-800 dark:text-gray-100">3. Сдача и проверка</p>
+            <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">Ученик сдаёт работу с ответами и прикреплёнными решениями, преподаватель проверяет.</p>
+        </div>
     </div>
-    {% else %}
-    <div class="card border border-gray-100 dark:border-gray-800 p-12 text-center text-gray-400 dark:text-gray-500">
-        Курсы пока не опубликованы. Загляните позже!
-    </div>
-    {% endif %}
 </section>
 
 <!-- О ПРЕПОДАВАТЕЛЕ -->

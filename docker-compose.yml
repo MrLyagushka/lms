@@ -15,16 +15,76 @@ services:
     env_file:
       - .env
     environment:
-      - DJANGO_ALLOWED_HOSTS=${DOMAIN_NAME},localhost,127.0.0.1
+      # FIX: healthcheck ходит на http://127.0.0.1:8000/, поэтому localhost и
+      # 127.0.0.1 всегда должны быть разрешены Django (иначе — DisallowedHost,
+      # HTTP 400 и контейнер никогда не станет healthy).
+      - DJANGO_ALLOWED_HOSTS=${DOMAIN_NAME},localhost,127.0.0.1,testserver
+      # FIX: в режиме прода внутри compose база всегда доступна по хосту «db»,
+      # поэтому принудительно задаём DB_HOST/DB_PORT — иначе приложение при
+      # DB_ENGINE=postgresql пытается стучаться в localhost и падает с
+      # «connection refused» / «could not connect to server».
+      - DB_HOST=${DB_HOST:-db}
+      - DB_PORT=${DB_PORT:-5432}
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+        required: false   # сервис опционален (профиль postgres) — не блокирует запуск без него
+    # FIX: entrypoint-скрипт лежит в scripts/ и монтируется volume'ом .:/app,
+    # поэтому обновляется на сервере без пересборки образа (в отличие от
+    # manage.py-команд, которые могут «протухнуть» в volume).
+    # set -e — любая упавшая команда завершает контейнер с ненулевым кодом;
+    # `make up` увидит статус exited + логи, а не будет ждать healthy до таймаута.
+    # Проверка wait_for_db даёт внятное сообщение вместо «Unknown command»,
+    # которое раньше бесконечно перезапускало lms_web (restart: unless-stopped).
     command: >
-      sh -c "python manage.py migrate --noinput &&
-             python manage.py collectstatic --noinput &&
+      sh -c "/app/scripts/docker_entrypoint.sh &&
              gunicorn core.wsgi:application --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-3}"
+    # FIX: healthcheck проверяет только то, что gunicorn СЛУШАЕТ порт 8000
+    # (connect + handshake OK), а не статус ответа. Приложение может долго
+    # выполняться во время первичных миграций, а запрос к БД возвращать 500 —
+    # при строгой проверке (<400) контейнер залипал в «unhealthy» и
+    # «docker compose up -d --wait» падал с ошибкой. listen-проверка надёжна;
+    # фактическую готовность приложения обеспечивает entrypoint-цепочка
+    # wait_for_db && migrate && collectstatic до запуска gunicorn.
     healthcheck:
-      test: ["CMD", "python", "manage.py", "check"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import socket, sys
+          try:
+              with socket.create_connection(('127.0.0.1', 8000), timeout=3):
+                  sys.exit(0)
+          except Exception:
+              sys.exit(1)
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 60s
+
+  # FIX: PostgreSQL для режима прода. Включается профилем «postgres»:
+  #   docker compose --profile postgres up -d   (или make deploy POSTGRES=1)
+  # Чтобы web использовал эту базу, в .env должно быть DB_ENGINE=django.db.backends.postgresql.
+  db:
+    image: postgres:16-alpine
+    container_name: lms_db
+    restart: unless-stopped
+    profiles: ["postgres"]
+    environment:
+      - POSTGRES_DB=${DB_NAME:-lms_db}
+      - POSTGRES_USER=${DB_USER:-lms_user}
+      # FIX: postgres требует пароль — без него контейнер не стартует.
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?set DB_PASSWORD in .env when using the postgres profile}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
 
   caddy:
     image: caddy:2-alpine
@@ -49,3 +109,4 @@ volumes:
   media_data:
   caddy_data:
   caddy_config:
+  pg_data:
