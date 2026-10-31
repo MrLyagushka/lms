@@ -3,8 +3,18 @@
 # Генерирует случайные ключи, запрашивает у пользователя важные значения.
 #
 # Запуск:
-#     python /app/scripts/init_env.py
+#     python /app/scripts/init_env.py            # интерактивный режим
+#     python /app/scripts/init_env.py --postgres # прод: PostgreSQL без вопросов
+#     LMS_POSTGRES=1 DOMAIN_NAME=... CADDY_EMAIL=... \
+#     EMAIL_HOST_USER=... EMAIL_HOST_PASSWORD=... \
+#     python /app/scripts/init_env.py            # CI: всё из env-переменных
+#
+# Флаги:
+#     --postgres / --prod : включить PostgreSQL (пароль генерируется)
+#     --sqlite            : оставить SQLite без опроса
+#     -y / --yes          : не задавать вопросов (пустые значения -> дефолты)
 
+import os
 import secrets
 import shutil
 import sys
@@ -49,9 +59,42 @@ POSTGRES_DEFAULTS = {
 }
 
 
-def _ask_database(interactive):
-    """Спрашивает, использовать ли PostgreSQL; при согласии возвращает блок БД для .env."""
-    if interactive:
+def parse_args(argv):
+    """Разбирает флаги и env-переменные. Возвращает dict с режимом работы."""
+    opts = {"postgres": None, "yes": False}
+    for arg in argv:
+        if arg in ("--postgres", "--prod"):
+            opts["postgres"] = True
+        elif arg == "--sqlite":
+            opts["postgres"] = False
+        elif arg in ("-y", "--yes"):
+            opts["yes"] = True
+        elif arg.startswith("-"):
+            print(f"[!] Неизвестный флаг: {arg} (см. --help в начале файла)")
+    # Fallback на переменные окружения (docker compose run их не передаёт)
+    if opts["postgres"] is None:
+        flag = os.environ.get("LMS_POSTGRES", "").strip().lower()
+        if flag in ("1", "true", "yes", "y", "on"):
+            opts["postgres"] = True
+        elif flag in ("0", "false", "no", "n", "off"):
+            opts["postgres"] = False
+    if not opts["yes"]:
+        opts["yes"] = os.environ.get("LMS_YES", "").strip().lower() in ("1", "true", "yes")
+    return opts
+
+
+def _ask_database(interactive, force=None):
+    """Спрашивает, использовать ли PostgreSQL; при согласии возвращает блок БД для .env.
+
+    force=True/False — ответ задан флагом/env, вопрос не задаётся.
+    """
+    if force is True:
+        use_pg = True
+        if interactive:
+            print("[i] PostgreSQL выбран (флаг/переменная), вопросы по параметрам не задаются")
+    elif force is False:
+        use_pg = False
+    elif interactive:
         answer = input("\n[i] Использовать PostgreSQL вместо SQLite в проде? (y/N): ").strip().lower()
         use_pg = answer in ("y", "yes", "да")
     else:
@@ -60,16 +103,25 @@ def _ask_database(interactive):
         return {}
     changes = {"DB_ENGINE": "django.db.backends.postgresql"}
     for key, (hint, default) in POSTGRES_DEFAULTS.items():
-        if interactive:
+        env_val = os.environ.get(key, "").strip()
+        if env_val:
+            changes[key] = env_val
+            print(f"   [~] {key} = {env_val} (из переменных окружения)")
+        elif force is not None or not interactive:
+            changes[key] = default  # неинтерактивно/по флагу — дефолты без вопросов
+        else:
             value = input(f"   {hint} [{default}]: ").strip()
             changes[key] = value or default
-        else:
-            changes[key] = default
-    changes["DB_PASSWORD"] = secrets.token_urlsafe(24)
-    print(f"   [+] DB_PASSWORD = {changes['DB_PASSWORD'][:8]}... (сгенерирован)")
+    env_pass = os.environ.get("DB_PASSWORD", "").strip()
+    if env_pass and env_pass != "change-me-strong-password":
+        changes["DB_PASSWORD"] = env_pass
+        print("   [~] DB_PASSWORD взят из переменных окружения")
+    else:
+        changes["DB_PASSWORD"] = secrets.token_urlsafe(24)
+        print(f"   [+] DB_PASSWORD = {changes['DB_PASSWORD'][:8]}... (сгенерирован)")
     # Внутри docker compose хост базы всегда «db» (compose сам выставит DB_HOST=db)
-    changes["DB_HOST"] = "db"
-    changes["DB_PORT"] = "5432"
+    changes["DB_HOST"] = os.environ.get("DB_HOST", "").strip() or "db"
+    changes["DB_PORT"] = os.environ.get("DB_PORT", "").strip() or "5432"
     return changes
 
 
@@ -89,14 +141,30 @@ def parse_env(filepath):
     return result
 
 
+def _atomic_write(target, text):
+    """Атомарная запись файла; при отказе temp-пути пишет напрямую в target."""
+    temporary_file = target.with_name(target.name + ".tmp")
+    try:
+        with open(temporary_file, "w", encoding="utf-8") as f:
+            f.write(text)
+        temporary_file.replace(target)
+    except OSError as exc:
+        # FIX: если temp-файл создать нельзя (например, leftover-файл принадлежит
+        # другому пользователю в смонтированном томе) — пишем напрямую в .env.
+        print(f"[WARN] Атомарная запись не удалась ({exc}); пишу напрямую в {target.name}")
+        try:
+            temporary_file.unlink()
+        except OSError:
+            pass
+        with open(target, "w", encoding="utf-8") as f:
+            f.write(text)
+
+
 def save_env(filepath, data):
     # Сохраняет словарь в .env файл (названия ключей сохраняем)
     # FIX: секреты в .env не должны оставаться читаемыми для всех пользователей.
-    temporary_file = filepath.with_suffix(".tmp")
-    with open(temporary_file, "w", encoding="utf-8") as f:
-        for key, value in data.items():
-            f.write(f"{key}={value}\n")
-    temporary_file.replace(filepath)
+    text = "".join(f"{key}={value}\n" for key, value in data.items())
+    _atomic_write(filepath, text)
     try:
         filepath.chmod(0o600)
     except OSError as exc:
@@ -112,7 +180,8 @@ def is_empty(value):
     )
 
 
-def main():
+def main(argv=None):
+    opts = parse_args(sys.argv[1:] if argv is None else argv)
     print("Инициализация .env файла\n")
 
     # Если .env нет — копируем из .env.example
@@ -128,7 +197,18 @@ def main():
 
     env_data = parse_env(ENV_FILE)
     changed = False
-    interactive = sys.stdin.isatty()
+    interactive = sys.stdin.isatty() and not opts["yes"]
+
+    # 0. FIX: значения из переменных окружения имеют приоритет (non-interactive
+    # запуск в docker compose run и CI). Пустые строки игнорируются, чтобы
+    # os.environ без ключа не затирал существующие значения.
+    for key in list(USER_INPUT_KEYS) + ["DB_ENGINE", "SITE_URL", "DJANGO_ALLOWED_HOSTS"]:
+        value = os.environ.get(key, "").strip()
+        if value and env_data.get(key, "") != value:
+            env_data[key] = value
+            changed = True
+            shown = value[:20] + ("..." if len(value) > 20 else "")
+            print(f"[~] {key} = {shown} (из переменных окружения)")
 
     # 1. Автогенерация ключей
     print("[i] Автоматическая генерация ключей:")
@@ -147,11 +227,28 @@ def main():
     # параметры БД не попадали в .env и прод-запуск с postgres падал
     # из-за отсутствия DB_USER/DB_PASSWORD.
     existing_engine = env_data.get("DB_ENGINE", "")
-    if not is_empty(existing_engine) and "postgresql" in existing_engine:
-        print("\n[i] DB_ENGINE уже задан как PostgreSQL — пропускаем опрос, сверяем параметры:")
+    pg_forced = opts["postgres"] is True or (
+        not is_empty(existing_engine) and "postgresql" in existing_engine
+    )
+    if pg_forced:
+        # FIX: postgres-параметры должны попасть в .env даже если файла ещё нет
+        # или движок был выбран флагом (--postgres), а не задан заранее.
+        if "postgresql" in (existing_engine or ""):
+            print("\n[i] DB_ENGINE уже задан как PostgreSQL — пропускаем опрос, сверяем параметры:")
+        elif opts["postgres"] is True:
+            env_data["DB_ENGINE"] = "django.db.backends.postgresql"
+            changed = True
         missing = {k: d for k, (_, d) in POSTGRES_DEFAULTS.items() if is_empty(env_data.get(k, ""))}
+        # FIX: при переходе на postgres имя базы из sqlite-шаблона (db.sqlite3)
+        # не имеет смысла — просим/ставим нормальное имя базы.
+        current_dbname = env_data.get("DB_NAME", "")
+        if "postgresql" in (env_data.get("DB_ENGINE") or "") and current_dbname.strip() == "db.sqlite3":
+            missing["DB_NAME"] = POSTGRES_DEFAULTS["DB_NAME"][1]
         for key, default in missing.items():
-            if interactive:
+            env_val = os.environ.get(key, "").strip()
+            if env_val:
+                env_data[key] = env_val
+            elif interactive and opts["postgres"] is None:
                 value = input(f"   {POSTGRES_DEFAULTS[key][0]} [{default}]: ").strip()
                 env_data[key] = value or default
             else:
@@ -159,11 +256,17 @@ def main():
             print(f"   [~] {key} = {env_data[key]}")
             changed = True
         if is_empty(env_data.get("DB_PASSWORD", "")):
-            env_data["DB_PASSWORD"] = secrets.token_urlsafe(24)
-            print(f"   [+] DB_PASSWORD = {env_data['DB_PASSWORD'][:8]}... (сгенерирован)")
+            env_pass = os.environ.get("DB_PASSWORD", "").strip()
+            if env_pass and env_pass != "change-me-strong-password":
+                env_data["DB_PASSWORD"] = env_pass
+            else:
+                env_data["DB_PASSWORD"] = secrets.token_urlsafe(24)
+                print(f"   [+] DB_PASSWORD = {env_data['DB_PASSWORD'][:8]}... (сгенерирован)")
             changed = True
         env_data.setdefault("DB_HOST", "db")
         env_data.setdefault("DB_PORT", "5432")
+    elif opts["postgres"] is False:
+        pass  # SQLite выбран явно (--sqlite) — не спрашиваем
     else:
         db_changes = _ask_database(interactive)
         if db_changes:

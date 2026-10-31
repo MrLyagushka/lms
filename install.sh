@@ -6,14 +6,19 @@
 #    1. Проверяет/устанавливает системные зависимости (python3, pip, venv, git;
 #       опционально docker + compose для режима прода).
 #    2. Создаёт виртуальное окружение .venv и ставит библиотеки из requirements.txt.
-#    3. Формирует .env из .env.example: генерирует DJANGO_SECRET_KEY, подставляет
-#       домен и email; с флагом --postgres настраивает блок PostgreSQL
-#       (генерирует надёжный пароль DB_PASSWORD).
-#    4. Применяет миграции и собирает статику (режим dev — в локальном venv).
+#    3. Спрашивает режим установки: dev (SQLite, локально) или prod (PostgreSQL +
+#       Docker). Флаги --postgres/--prod и --dev подавляют вопрос; переменные
+#       DOMAIN/EMAIL задают значения без опроса.
+#    4. Формирует .env из .env.example: генерирует DJANGO_SECRET_KEY, подставляет
+#       домен и email; в prod-режиме настраивает блок PostgreSQL
+#       (раскомментирует шаблон, генерирует надёжный пароль DB_PASSWORD),
+#       выставляет DJANGO_DEBUG=False.
+#    5. Применяет миграции и собирает статику (режим dev — в локальном venv).
 #
 #  Запуск:
-#    ./install.sh                 # dev-режим: venv + SQLite + миграции
-#    ./install.sh --postgres      # прод-режим: проверка docker + .env с PostgreSQL
+#    ./install.sh                 # интерактивно: спросит про режим
+#    ./install.sh --postgres      # прод-режим без вопросов о режиме
+#    ./install.sh --dev           # dev-режим без вопросов
 #    ./install.sh --no-venv       # ставить библиотеки в системный python
 #    ./install.sh --skip-system   # не пытаться ставить системные пакеты
 #    DOMAIN=example.com EMAIL=admin@example.com ./install.sh
@@ -31,10 +36,12 @@ USE_POSTGRES=0
 USE_VENV=1
 SKIP_SYSTEM=0
 WITH_DOCKER_CHECK=0
+MODE=""
 
 for arg in "$@"; do
     case "$arg" in
-        --postgres)      USE_POSTGRES=1; WITH_DOCKER_CHECK=1 ;;
+        --postgres|--prod) USE_POSTGRES=1; WITH_DOCKER_CHECK=1; MODE="prod" ;;
+        --dev)             MODE="dev" ;;
         --no-venv)       USE_VENV=0 ;;
         --skip-system)   SKIP_SYSTEM=1 ;;
         -h|--help)       grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
@@ -149,6 +156,39 @@ ok "Библиотеки установлены: $($PY_BIN -m pip freeze | wc -l
 # --------------------- 3. переменные окружения (.env) ------------------------
 info "Шаг 3/4: настройка .env"
 
+# FIX: интерактивный вопрос о режиме — прод (PostgreSQL+Docker) или dev (SQLite).
+# Флаги --postgres/--dev и переменная REASON/MODE переопределяют вопрос.
+MODE="${REASON:-$MODE}"
+if [ "$USE_POSTGRES" -eq 1 ]; then MODE="prod"; fi
+case "${MODE}" in
+    dev|sqlite) USE_POSTGRES=0; MODE="dev" ;;
+    prod|production|postgres|postgresql) MODE="prod" ;;
+esac
+if [ -z "$MODE" ]; then
+    if [ -t 0 ]; then
+        echo
+        echo "Выберите режим установки:"
+        echo "  1) dev  — локальная разработка, SQLite, runserver"
+        echo "  2) prod — продакшен, PostgreSQL + Docker (make deploy POSTGRES=1)"
+        read -r -p "Режим [1/dev, 2/prod] (по умолчанию dev): " REPLY_MODE || REPLY_MODE=""
+        case "$(echo "$REPLY_MODE" | tr '[:upper:]' '[:lower:]')" in
+            2|prod|production|postgres|postgresql)
+                MODE="prod"; USE_POSTGRES=1; WITH_DOCKER_CHECK=1 ;;
+            *) MODE="dev" ;;
+        esac
+    else
+        MODE="dev"
+        warn "Неинтерактивный запуск — выбран режим dev (SQLite)."
+    fi
+fi
+if [ "$MODE" = "prod" ]; then
+    USE_POSTGRES=1
+    WITH_DOCKER_CHECK=1
+    info "Режим ПРОД: PostgreSQL + Docker."
+else
+    info "Режим DEV: SQLite, локальный запуск."
+fi
+
 [ -f .env.example ] || die ".env.example не найден — невозможно создать .env"
 
 if [ -f .env ]; then
@@ -200,11 +240,34 @@ case "$CUR_SECRET" in
     *) info "DJANGO_SECRET_KEY уже задан — оставляю как есть." ;;
 esac
 
-# Домен / URL / Caddy
+# Домен / email — в prod-режиме спрашиваем (если ещё не заданы через env/арги)
+if [ "$USE_POSTGRES" -eq 1 ] && [ -t 0 ]; then
+    echo
+    info "Продакшен: параметры можно менять повторным запуском ./install.sh"
+    read -r -p "Домен сайта [${DOMAIN}]: " ANSWER_DOMAIN && DOMAIN="${ANSWER_DOMAIN:-$DOMAIN}"
+    read -r -p "Email администратора/Caddy [${CADDY_EMAIL}]: " ANSWER_EMAIL && CADDY_EMAIL="${ANSWER_EMAIL:-$CADDY_EMAIL}"
+    if [ -z "${EMAIL_HOST_USER:-}" ] && [ -t 0 ]; then
+        read -r -p "SMTP-логин для писем (Enter — пропустить): " EMAIL_HOST_USER || true
+        if [ -n "${EMAIL_HOST_USER:-}" ]; then
+            read -r -s -p "SMTP-пароль (ввод скрыт): " EMAIL_HOST_PASSWORD; echo
+            export EMAIL_HOST_USER EMAIL_HOST_PASSWORD
+        fi
+    fi
+fi
 set_env_var DOMAIN_NAME "$DOMAIN"
 set_env_var SITE_URL "https://${DOMAIN}"
 set_env_var CADDY_EMAIL "$CADDY_EMAIL"
 ok "Домен: $DOMAIN, email Caddy: $CADDY_EMAIL"
+
+# FIX: DJANGO_DEBUG — в dev True, в prod False (прод без отладки безопаснее)
+if [ "$USE_POSTGRES" -eq 1 ]; then
+    set_env_var DJANGO_DEBUG "False"
+else
+    CUR_DEBUG="$(get_env_var DJANGO_DEBUG)"
+    [ -z "$CUR_DEBUG" ] && set_env_var DJANGO_DEBUG "True"
+fi
+[ -n "${EMAIL_HOST_USER:-}" ] && set_env_var EMAIL_HOST_USER "$EMAIL_HOST_USER"
+[ -n "${EMAIL_HOST_PASSWORD:-}" ] && set_env_var EMAIL_HOST_PASSWORD "$EMAIL_HOST_PASSWORD"
 
 if [ "$USE_POSTGRES" -eq 1 ]; then
     info "Режим PostgreSQL: настраиваю блок БД в .env"

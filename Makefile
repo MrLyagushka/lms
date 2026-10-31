@@ -46,8 +46,16 @@ superuser:       ## Создать суперпользователя
 check-domain:    ## Проверить соответствие домена в .env и Caddyfile
 	$(COMPOSE) exec web python /app/scripts/check_domain.py
 
-init-env:        ## Инициализировать .env (генерация ключей + запрос параметров)
-	docker compose run --rm web python /app/scripts/init_env.py
+init-env:        ## Инициализировать .env (генерация ключей + запрос параметров; POSTGRES=1 — прод без вопросов)
+	@set -e; \
+	if [ -f .env ] && ! test -w .env && ! test -w .; then \
+		echo "[!] .env принадлежит другому пользователю и не доступен для записи."; \
+		echo "    Исправьте права на сервере: смените владельца .env (chown <uid>:<gid>) и chmod 600"; \
+		exit 1; \
+	fi; \
+	ARGS=""; \
+	if [ -n "$(POSTGRES)" ]; then ARGS="--postgres"; fi; \
+	$(COMPOSE) run --rm -T web python /app/scripts/init_env.py $$ARGS
 
 sqlite-to-postgres: ## Перенести данные из db.sqlite3 в PostgreSQL (make ... POSTGRES=1)
 	@test -n "$(POSTGRES)" || (echo "[!] Запустите с POSTGRES=1: make sqlite-to-postgres POSTGRES=1" && exit 1)
