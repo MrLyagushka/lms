@@ -16,7 +16,12 @@ help:            ## Показать список доступных коман�
 	@echo ""
 	@echo "Для запуска с PostgreSQL добавьте POSTGRES=1, например: make deploy POSTGRES=1"
 
-up: init-env     ## Собрать и запустить проект (POSTGRES=1 — с базой PostgreSQL)
+# FIX: деплой больше НЕ запускает init_env (раньше `make deploy` падал с
+# [Errno 13] Permission denied на .env: контейнер работает от пользователя lms,
+# а .env принадлежит root). Все переменные настраиваются один раз через
+# ./install.sh или вручную; здесь только проверка, что .env существует.
+up:              ## Собрать и запустить проект (POSTGRES=1 — с базой PostgreSQL)
+	@test -f .env || (echo "[!] .env не найден. Выполните сначала: ./install.sh" && exit 1)
 	$(COMPOSE) build
 	$(COMPOSE) up -d
 	$(COMPOSE) exec web python manage.py wait_for_db
@@ -46,16 +51,16 @@ superuser:       ## Создать суперпользователя
 check-domain:    ## Проверить соответствие домена в .env и Caddyfile
 	$(COMPOSE) exec web python /app/scripts/check_domain.py
 
-init-env:        ## Инициализировать .env (генерация ключей + запрос параметров; POSTGRES=1 — прод без вопросов)
+init-env:        ## Инициализировать .env (локально, от root; больше НЕ вызывается из up/deploy)
 	@set -e; \
-	if [ -f .env ] && ! test -w .env && ! test -w .; then \
-		echo "[!] .env принадлежит другому пользователю и не доступен для записи."; \
-		echo "    Исправьте права на сервере: смените владельца .env (chown <uid>:<gid>) и chmod 600"; \
-		exit 1; \
+	if [ ! -f .env ] && [ ! -f .env.example ]; then \
+		echo "[!] Нет ни .env, ни .env.example"; exit 1; \
 	fi; \
+	if [ ! -f .env ]; then cp .env.example .env; fi; \
+	chmod 600 .env 2>/dev/null || true; \
 	ARGS=""; \
-	if [ -n "$(POSTGRES)" ]; then ARGS="--postgres"; fi; \
-	$(COMPOSE) run --rm -T web python /app/scripts/init_env.py $$ARGS
+	if [ -n "$(POSTGRES)" ]; then ARGS="--postgres -y"; fi; \
+	python3 scripts/init_env.py $$ARGS
 
 sqlite-to-postgres: ## Перенести данные из db.sqlite3 в PostgreSQL (make ... POSTGRES=1)
 	@test -n "$(POSTGRES)" || (echo "[!] Запустите с POSTGRES=1: make sqlite-to-postgres POSTGRES=1" && exit 1)

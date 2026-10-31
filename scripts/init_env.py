@@ -156,8 +156,17 @@ def _atomic_write(target, text):
             temporary_file.unlink()
         except OSError:
             pass
-        with open(target, "w", encoding="utf-8") as f:
-            f.write(text)
+        try:
+            with open(target, "w", encoding="utf-8") as f:
+                f.write(text)
+        except PermissionError as pexc:
+            # FIX: понятное сообщение вместо голого Errno 13: контейнер работает
+            # от пользователя lms, а .env может принадлежать root на хосте.
+            raise RuntimeError(
+                f"Нет прав на запись в {target} ({pexc}). "
+                "Исправьте на хосте: sudo chown $(id -u):$(id -g) .env && chmod 600 .env. "
+                "Настройка .env больше не выполняется из контейнера — используйте ./install.sh."
+            ) from pexc
 
 
 def save_env(filepath, data):
@@ -313,7 +322,7 @@ def main(argv=None):
     if changed:
         try:
             save_env(ENV_FILE, env_data)
-        except OSError as exc:
+        except (OSError, RuntimeError) as exc:
             print(f"\n[ERROR] Не удалось сохранить .env: {exc}")
             return 1
         print(f"\n[OK] .env сохранён: {ENV_FILE}")
