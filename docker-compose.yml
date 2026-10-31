@@ -16,8 +16,20 @@ services:
       - .env
     environment:
       - DJANGO_ALLOWED_HOSTS=${DOMAIN_NAME},localhost,127.0.0.1
+      # FIX: в режиме прода внутри compose база всегда доступна по хосту «db»,
+      # поэтому принудительно задаём DB_HOST/DB_PORT — иначе приложение при
+      # DB_ENGINE=postgresql пытается стучаться в localhost и падает с
+      # «connection refused» / «could not connect to server».
+      - DB_HOST=${DB_HOST:-db}
+      - DB_PORT=${DB_PORT:-5432}
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+        required: false   # сервис опционален (профиль postgres) — не блокирует запуск без него
     command: >
-      sh -c "python manage.py migrate --noinput &&
+      sh -c "python manage.py wait_for_db &&
+             python manage.py migrate --noinput &&
              python manage.py collectstatic --noinput &&
              gunicorn core.wsgi:application --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-3}"
     healthcheck:
@@ -25,6 +37,28 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  # FIX: PostgreSQL для режима прода. Включается профилем «postgres»:
+  #   docker compose --profile postgres up -d   (или make deploy POSTGRES=1)
+  # Чтобы web использовал эту базу, в .env должно быть DB_ENGINE=django.db.backends.postgresql.
+  db:
+    image: postgres:16-alpine
+    container_name: lms_db
+    restart: unless-stopped
+    profiles: ["postgres"]
+    environment:
+      - POSTGRES_DB=${DB_NAME:-lms_db}
+      - POSTGRES_USER=${DB_USER:-lms_user}
+      # FIX: postgres требует пароль — без него контейнер не стартует.
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?set DB_PASSWORD in .env when using the postgres profile}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
 
   caddy:
     image: caddy:2-alpine
@@ -49,3 +83,4 @@ volumes:
   media_data:
   caddy_data:
   caddy_config:
+  pg_data:

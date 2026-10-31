@@ -40,6 +40,38 @@ USER_INPUT_KEYS = {
     "CADDY_EMAIL": ("Email для SSL-сертификатов Caddy", "admin@lyagushkas.ru"),
 }
 
+# FIX: параметры PostgreSQL для режима прода. Спрашиваем только если
+# пользователь согласился использовать PostgreSQL (или DB_ENGINE уже postgres).
+POSTGRES_DEFAULTS = {
+    "DB_NAME": ("Имя базы PostgreSQL", "lms_db"),
+    "DB_USER": ("Пользователь PostgreSQL", "lms_user"),
+    # DB_PASSWORD — генерируем надёжный пароль автоматически
+}
+
+
+def _ask_database(interactive):
+    """Спрашивает, использовать ли PostgreSQL; при согласии возвращает блок БД для .env."""
+    if interactive:
+        answer = input("\n[i] Использовать PostgreSQL вместо SQLite в проде? (y/N): ").strip().lower()
+        use_pg = answer in ("y", "yes", "да")
+    else:
+        use_pg = False
+    if not use_pg:
+        return {}
+    changes = {"DB_ENGINE": "django.db.backends.postgresql"}
+    for key, (hint, default) in POSTGRES_DEFAULTS.items():
+        if interactive:
+            value = input(f"   {hint} [{default}]: ").strip()
+            changes[key] = value or default
+        else:
+            changes[key] = default
+    changes["DB_PASSWORD"] = secrets.token_urlsafe(24)
+    print(f"   [+] DB_PASSWORD = {changes['DB_PASSWORD'][:8]}... (сгенерирован)")
+    # Внутри docker compose хост базы всегда «db» (compose сам выставит DB_HOST=db)
+    changes["DB_HOST"] = "db"
+    changes["DB_PORT"] = "5432"
+    return changes
+
 
 def parse_env(filepath):
     # Парсит .env файл в словарь {KEY: VALUE}, сохраняя порядок строк

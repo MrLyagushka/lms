@@ -135,13 +135,30 @@ if DB_ENGINE == "django.db.backends.sqlite3":
         "NAME": BASE_DIR / os.getenv("DB_NAME", "db.sqlite3"),
     }
 else:
+    # FIX: для PostgreSQL/MySQL обязательны пользователь и пароль — иначе
+    # Django подключается с пустыми учётными данными и падает с
+    # «OperationalError: ... connection to server ... failed», что выглядит
+    # как «проблема с подключением к базе в режиме прода».
+    _db_user = os.getenv("DB_USER", "")
+    _db_password = os.getenv("DB_PASSWORD", "")
+    if not DEBUG and (not _db_user or not _db_password):
+        raise ImproperlyConfigured(
+            "При DB_ENGINE != sqlite3 в продакшене обязательно задайте "
+            "DB_USER и DB_PASSWORD в .env (см. .env.example)."
+        )
     DATABASES["default"] = {
         "ENGINE": DB_ENGINE,
         "NAME": os.getenv("DB_NAME", "lms_db"),
-        "USER": os.getenv("DB_USER", ""),
-        "PASSWORD": os.getenv("DB_PASSWORD", ""),
-        "HOST": os.getenv("DB_HOST", ""),
-        "PORT": os.getenv("DB_PORT", ""),
+        "USER": _db_user,
+        "PASSWORD": _db_password,
+        # FIX: внутри docker compose хост базы — «db» (compose сам выставляет
+        # DB_HOST=db в environment сервиса web); снаружи (свой сервер PG)
+        # укажите DB_HOST явно в .env.
+        "HOST": os.getenv("DB_HOST", "localhost"),
+        "PORT": os.getenv("DB_PORT", "5432"),
+        "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "60")),
+        # FIX: явный таймаут подключения — быстрее и понятнее, чем бесконечное зависание.
+        "OPTIONS": {"connect_timeout": int(os.getenv("DB_CONNECT_TIMEOUT", "10"))},
     }
 
 # Password validation
